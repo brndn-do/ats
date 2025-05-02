@@ -33,3 +33,8 @@ CREATE TABLE applications (
   UNIQUE(job_id, applicant_email)
 );
 
+INSERT INTO users (
+  username, email, pwd_hash, is_admin
+) VALUES (
+  admin, ats@app.com, abc123, true
+);
