@@ -36,14 +36,14 @@ app.post("/api/jobs", async (req, res) => {
   console.log("Received POST request /api/jobs");
   try {
     const body = req.body;
-    if (!("title" in body && "description" in body && "admin_id" in body)) {
+    if (!("title" in body && "description" in body && "adminId" in body)) {
       console.log("Missing required fields");
       return res.status(422).json({ error: "Missing required fields" });
     }
     if (
       typeof body.title != "string" ||
       typeof body.description != "string" ||
-      typeof body.admin_id != "number"
+      typeof body.adminId != "number"
     ) {
       console.log("Incorrect data type(s) in body");
       return res.status(422).json({ error: "Incorrect data type(s) in body" });
@@ -53,7 +53,7 @@ app.post("/api/jobs", async (req, res) => {
       VALUES ($1, $2, $3)
       RETURNING *
     `;
-    const params = [body.title, body.description, body.admin_id];
+    const params = [body.title, body.description, body.adminId];
     const result = await queryWithRetry(query, params);
     if (result.rowCount !== 1) {
       console.log("Failed to insert job");
@@ -71,8 +71,8 @@ app.post("/api/jobs", async (req, res) => {
 app.get("/api/jobs/:id", async (req, res) => {
   console.log("Received GET request /api/jobs/:id");
   try {
-    const job_id = parseInt(req.params.id);
-    if (isNaN(job_id)) {
+    const jobId = parseInt(req.params.id);
+    if (isNaN(jobId)) {
       console.log("Invalid job ID");
       return res.status(400).json({ error: "Invalid job ID"});
     }
@@ -80,7 +80,7 @@ app.get("/api/jobs/:id", async (req, res) => {
       SELECT * FROM jobs
       WHERE id = $1;
     `;
-    const params = [job_id];
+    const params = [jobId];
     const result = await queryWithRetry(query, params);
     if (result.rowCount === 0) {
       console.log("Job not found");
@@ -102,8 +102,8 @@ app.get("/api/jobs/:id", async (req, res) => {
 app.delete("/api/jobs/:id", async (req, res) => {
   console.log("Received DELETE request /api/jobs/:id");
   try {
-    const job_id = parseInt(req.params.id);
-    if (isNaN(job_id)) {
+    const jobId = parseInt(req.params.id);
+    if (isNaN(jobId)) {
       console.log("Invalid job ID");
       return res.status(400).json({ error: "Invalid job ID"});
     }
@@ -111,7 +111,7 @@ app.delete("/api/jobs/:id", async (req, res) => {
       DELETE FROM jobs WHERE id = $1
       RETURNING id, title, description, admin_id, created_at
     `;
-    const params = [job_id];
+    const params = [jobId];
     const result = await queryWithRetry(query, params);
     if (result.rowCount === 0) {
       console.log("Job not found");
@@ -133,8 +133,8 @@ app.delete("/api/jobs/:id", async (req, res) => {
 app.get("/api/jobs/:id/applications", async (req, res) => {
   console.log("Received GET request /api/jobs/:id/applications");
   try {
-    const job_id = parseInt(req.params.id);
-    if (isNaN(job_id)) {
+    const jobId = parseInt(req.params.id);
+    if (isNaN(jobId)) {
       console.log("Invalid job ID");
       return res.status(400).json({ error: "Invalid job ID"});
     }
@@ -142,10 +142,10 @@ app.get("/api/jobs/:id/applications", async (req, res) => {
       SELECT * FROM applications
       WHERE job_id = $1
     `;
-    const params = [job_id];
+    const params = [jobId];
     const result = await queryWithRetry(query, params);
-    console.log(`Retrived applications for job ${job_id}`);
-    return res.json({ message: `Retrived applications for job ${job_id}`, data: result.rows});
+    console.log(`Retrived applications for job ${jobId}`);
+    return res.json({ message: `Retrived applications for job ${jobId}`, data: result.rows});
   } catch (err) {
     console.error("Error fetching applications:", err);
     return res.status(500).json({ error: "Internal server error" });
@@ -156,31 +156,31 @@ app.get("/api/jobs/:id/applications", async (req, res) => {
 app.post("/api/jobs/:id/applications", async (req, res) => {
   console.log("Received POST request /api/jobs/:id/applications");
   try {
-    const job_id = parseInt(req.params.id);
-    if (isNaN(job_id)) {
+    const jobId = parseInt(req.params.id);
+    if (isNaN(jobId)) {
       console.log("Invalid Job ID");
       return res.status(400).json({ error: "Invalid Job ID" });
     }
-    const job_exists = await queryWithRetry("SELECT 1 FROM jobs WHERE id = $1", [job_id]);
-    if (job_exists.rowCount === 0) {
+    const jobExists = await queryWithRetry("SELECT 1 FROM jobs WHERE id = $1", [jobId]);
+    if (jobExists.rowCount === 0) {
       console.log("Job not found");
       return res.status(404).json({ error: "job not found" });
     }
     const body = req.body;
-    if (!("applicant_name" in body && "applicant_email" in body && "resume_id" in body)) {
+    if (!("applicantName" in body && "applicantEmail" in body && "resumeId" in body)) {
       console.log("Missing required fields");
       return res.status(422).json({ error: "Missing required fields" });
     }
     if (
-      typeof body.applicant_name != "string" ||
-      typeof body.applicant_email != "string" ||
-      typeof body.resume_id != "number"
+      typeof body.applicantName != "string" ||
+      typeof body.applicantEmail != "string" ||
+      typeof body.resumeId != "number"
     ) {
       console.log("Incorrect data type(s) in body");
       return res.status(422).json({ error: "Incorrect data type(s) in body" });
     }
-    const resume_exists = await queryWithRetry("SELECT 1 FROM resumes WHERE id = $1", [body.resume_id]);
-    if (resume_exists.rowCount === 0) {
+    const resumeExists = await queryWithRetry("SELECT 1 FROM resumes WHERE id = $1", [body.resumeId]);
+    if (resumeExists.rowCount === 0) {
       console.log("Resume not found");
       return res.status(404).json({ error: "Resume not found "});
     }
@@ -190,7 +190,7 @@ app.post("/api/jobs/:id/applications", async (req, res) => {
       VALUES ($1, $2, $3, $4)
       RETURNING *
     `;
-    const params = [body.applicant_name, body.applicant_email, body.resume_id, job_id];
+    const params = [body.applicantName, body.applicantEmail, body.resumeId, jobId];
     const result = await queryWithRetry(query, params);
     if (result.rowCount !== 1) {
       console.log("Failed to insert application");
