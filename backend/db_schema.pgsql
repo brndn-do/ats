@@ -1,7 +1,9 @@
+DROP TABLE IF EXISTS resumes, users, jobs, applications CASCADE;
+
 CREATE TABLE resumes (
   id SERIAL PRIMARY KEY,
   original_filename VARCHAR(255) NOT NULL,
-  file_url VARCHAR(255) NOT NULL UNIQUE,
+  object_key VARCHAR(255) NOT NULL UNIQUE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -36,5 +38,5 @@ CREATE TABLE applications (
 INSERT INTO users (
   username, email, pwd_hash, is_admin
 ) VALUES (
-  admin, ats@app.com, abc123, true
+  'admin', 'ats@app.com', 'abc123', true
 );
