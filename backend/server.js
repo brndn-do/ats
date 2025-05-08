@@ -1,7 +1,9 @@
 // server.js
 
 import express from 'express';
+import multer from 'multer';
 import queryWithRetry from './db.js';
+import { uploadResume, downloadResume, deleteResume } from './s3.js';
 
 const app = express();
 app.use(express.json());
@@ -89,7 +91,7 @@ app.get("/api/jobs/:id", async (req, res) => {
     console.log("Job retrieved");
     return res.json({ message: "Job retrieved", data: result.rows[0] });
   } catch (err) {
-    console.error("Error fetching job");
+    console.error("Error fetching job", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -204,13 +206,125 @@ app.post("/api/jobs/:id/applications", async (req, res) => {
   }
 });
 
+// GET /api/applications/:id
+// TODO
+
+// DELETE /api/applications/:id
+// TODO
+
+const upload = multer({ storage: multer.memoryStorage() });
+
 // POST /api/resumes
-app.post("/api/resumes", async (req, res) => {
-  console.log("Receive POST request /api/resumes");
+app.post("/api/resumes", upload.single("resume"), async (req, res) => {
+  console.log("Received POST request /api/resumes");
   try {
-    console.log("pass");
+    if (!req.file) {
+      console.log("Missing file");
+      return res.status(400).json({ error: "Missing file" });
+    }
+    if (req.file.mimetype !== "application/pdf") {
+      console.log("Received non-PDF file");
+      return res.status(400).json({ error: "Received non-PDF file" });
+    }
+    // upload to S3
+    const pdfBuffer = req.file.buffer;
+    const s3Result = await uploadResume(pdfBuffer);
+    // add to database
+    const query = `
+      INSERT INTO resumes
+      (original_filename, object_key)
+      VALUES ($1, $2)
+      RETURNING *
+    `;
+    const params = [req.file.originalname, s3Result.objectKey]
+    const dbResult = await queryWithRetry(query, params);
+    if (dbResult.rowCount !== 1) {
+      console.log("Failed to insert resume");
+      await deleteResume(s3Result.objectKey);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+    console.log("Resume posted");
+    return res.status(201).json({ message: "Resume posted", data: dbResult.rows[0] });
   } catch (err) {
-    console.error("Error posting application:", err);
+    console.error("Error posting resume:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// GET /api/resumes/:id
+app.get("/api/resumes/:id", async (req, res) => {
+  console.log("Received GET request /api/resumes/:id");
+  try {
+    const resumeId = parseInt(req.params.id);
+    if (isNaN(resumeId)) {
+      console.log("Invalid resume ID");
+      return res.status(400).json({ error: "Invalid resume ID"});
+    }
+    // query DB
+    const query = `
+      SELECT original_filename, object_key FROM resumes
+      WHERE id = $1;
+    `;
+    const params = [resumeId];
+    const dbResult = await queryWithRetry(query, params);
+    if (dbResult.rowCount === 0) {
+      console.log("Resume not found");
+      return res.status(404).json({ error: "Resume not found" });
+    }
+    // download from S3
+    const objectKey = dbResult.rows[0].object_key
+    const s3Result = await downloadResume(objectKey);
+    res.setHeader('Content-Type', s3Result.ContentType || 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${dbResult.rows[0].original_filename}"`);
+    console.log("Resume retrieved");
+    return s3Result.Body.pipe(res);
+  } catch (err) {
+    console.error("Error fetching resume", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// DELETE /api/resumes/:id
+app.delete("/api/resumes/:id", async (req, res) => {
+  console.log("Received DELETE request /api/resumes/:id");
+  try {
+    const resumeId = parseInt(req.params.id);
+    if (isNaN(resumeId)) {
+      console.log("Invalid resume ID");
+      return res.status(400).json({ error: "Invalid resume ID" });
+    }
+    // query DB
+    const query = `
+      SELECT object_key from resumes
+      WHERE id = $1
+    `;
+    const params = [resumeId];
+    const dbResult = await queryWithRetry(query, params);
+    if (dbResult.rowCount === 0) {
+      console.log("Resume not found");
+      return res.status(404).json({ error: "Resume not found" });
+    }
+    console.log("Retrived object key from database");
+    // delete from S3
+    const objectKey = dbResult.rows[0].object_key;
+    await deleteResume(objectKey);
+    console.log("Deleted resume from S3");
+    // delete from DB
+    const deleteQuery = `
+      DELETE FROM resumes
+      WHERE id = $1
+      RETURNING *
+    `
+    const dbDelete = await queryWithRetry(deleteQuery, params);
+    if (dbDelete.rowCount === 0) {
+      console.log("Error deleting resume");
+      return res.status(500).json({ error: "Internal server error" });
+    }
+    console.log("Deleted resume from DB");
+    console.log("Resume deleted");
+    return res.json({ message: "Resume deleted", data: dbDelete.rows[0]})
+  } catch (err) {
+    console.error("Error deleting resume", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 });
