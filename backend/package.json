@@ -19,6 +19,9 @@
     "uuid": "^11.1.0"
   },
   "devDependencies": {
+    "@babel/core": "^7.28.0",
+    "@babel/preset-env": "^7.28.0",
+    "babel-jest": "^30.0.4",
     "jest": "^30.0.4",
     "supertest": "^7.1.3"
   }
