@@ -1,9 +1,9 @@
 // app.js
 
-import express from 'express';
-import multer from 'multer';
-import queryWithRetry from './db.js';
-import { uploadResume, downloadResume, deleteResume } from './s3.js';
+import express from "express";
+import multer from "multer";
+import queryWithRetry from "./db.js";
+import { uploadResume, downloadResume, deleteResume } from "./s3.js";
 
 const app = express();
 app.use(express.json());
@@ -15,11 +15,10 @@ const upload = multer({ storage: multer.memoryStorage() });
 // TODO: add authentication to routes requiring admin authentication
 //
 
-
 // GET /
 app.get("/", (req, res) => {
   console.log("Received GET request /");
-  res.json( {status: "ok", message: "ATS API"} );
+  res.json({ status: "ok", message: "ATS API" });
 });
 
 // POST /api/resumes
@@ -44,7 +43,7 @@ app.post("/api/resumes", upload.single("resume"), async (req, res) => {
       VALUES ($1, $2)
       RETURNING *
     `;
-    const params = [req.file.originalname, s3Result.objectKey]
+    const params = [req.file.originalname, s3Result.objectKey];
     const dbResult = await queryWithRetry(query, params);
     if (dbResult.rowCount !== 1) {
       console.log("Failed to insert resume");
@@ -52,7 +51,9 @@ app.post("/api/resumes", upload.single("resume"), async (req, res) => {
       return res.status(500).json({ error: "Internal server error" });
     }
     console.log("Resume posted");
-    return res.status(201).json({ message: "Resume posted", data: dbResult.rows[0] });
+    return res
+      .status(201)
+      .json({ message: "Resume posted", data: dbResult.rows[0] });
   } catch (err) {
     console.error("Error posting resume:", err);
     return res.status(500).json({ error: "Internal server error" });
@@ -66,7 +67,7 @@ app.get("/api/resumes/:id", async (req, res) => {
     const resumeId = parseInt(req.params.id);
     if (isNaN(resumeId)) {
       console.log("Invalid resume ID");
-      return res.status(400).json({ error: "Invalid resume ID"});
+      return res.status(400).json({ error: "Invalid resume ID" });
     }
     // query DB
     const query = `
@@ -80,10 +81,13 @@ app.get("/api/resumes/:id", async (req, res) => {
       return res.status(404).json({ error: "Resume not found" });
     }
     // download from S3
-    const objectKey = dbResult.rows[0].object_key
+    const objectKey = dbResult.rows[0].object_key;
     const s3Result = await downloadResume(objectKey);
-    res.setHeader('Content-Type', s3Result.ContentType || 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename="${dbResult.rows[0].original_filename}"`);
+    res.setHeader("Content-Type", s3Result.ContentType || "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `inline; filename="${dbResult.rows[0].original_filename}"`
+    );
     console.log("Resume retrieved");
     return s3Result.Body.pipe(res);
   } catch (err) {
@@ -122,7 +126,7 @@ app.delete("/api/resumes/:id", async (req, res) => {
       DELETE FROM resumes
       WHERE id = $1
       RETURNING *
-    `
+    `;
     const dbDelete = await queryWithRetry(deleteQuery, params);
     if (dbDelete.rowCount === 0) {
       console.log("Error deleting resume");
@@ -130,7 +134,7 @@ app.delete("/api/resumes/:id", async (req, res) => {
     }
     console.log("Deleted resume from DB");
     console.log("Resume deleted");
-    return res.json({ message: "Resume deleted", data: dbDelete.rows[0]})
+    return res.status(204).send();
   } catch (err) {
     console.error("Error deleting resume", err);
     return res.status(500).json({ error: "Internal server error" });
@@ -143,7 +147,7 @@ app.post("/api/jobs", async (req, res) => {
   try {
     if (!req.body) {
       console.log("Missing body");
-      return res.status(400).json({ error: "Missing body" })
+      return res.status(400).json({ error: "Missing body" });
     }
     const body = req.body;
     if (!("title" in body && "description" in body && "adminId" in body)) {
@@ -170,7 +174,9 @@ app.post("/api/jobs", async (req, res) => {
       return res.status(500).json({ error: "Internal server error" });
     }
     console.log("Job posted");
-    return res.status(201).json({ message: "Job posted", data: result.rows[0] });
+    return res
+      .status(201)
+      .json({ message: "Job posted", data: result.rows[0] });
   } catch (err) {
     console.error("Error posting job:", err);
     return res.status(500).json({ error: "Internal server error" });
@@ -184,7 +190,7 @@ app.get("/api/jobs", async (req, res) => {
     const query = "SELECT * FROM jobs;";
     const result = await queryWithRetry(query);
     const jobs = result.rows;
-    console.log("Jobs retrieved")
+    console.log("Jobs retrieved");
     return res.json({ message: "Jobs retrieved", data: jobs });
   } catch (err) {
     console.error("Error fetching jobs:", err);
@@ -199,7 +205,7 @@ app.get("/api/jobs/:id", async (req, res) => {
     const jobId = parseInt(req.params.id);
     if (isNaN(jobId)) {
       console.log("Invalid job ID");
-      return res.status(400).json({ error: "Invalid job ID"});
+      return res.status(400).json({ error: "Invalid job ID" });
     }
     const query = `
       SELECT * FROM jobs
@@ -226,7 +232,7 @@ app.delete("/api/jobs/:id", async (req, res) => {
     const jobId = parseInt(req.params.id);
     if (isNaN(jobId)) {
       console.log("Invalid job ID");
-      return res.status(400).json({ error: "Invalid job ID"});
+      return res.status(400).json({ error: "Invalid job ID" });
     }
     const query = `
       DELETE FROM jobs WHERE id = $1
@@ -239,7 +245,7 @@ app.delete("/api/jobs/:id", async (req, res) => {
       return res.status(404).json({ error: "Job not found" });
     }
     console.log("Deleted job");
-    return res.json({ message: "Deleted job", data: result.rows[0] })
+    return res.json({ message: "Deleted job", data: result.rows[0] });
   } catch (err) {
     console.error("Error deleting job:", err);
     return res.status(500).json({ error: "Internal server error" });
@@ -255,17 +261,25 @@ app.post("/api/jobs/:id/applications", async (req, res) => {
       console.log("Invalid Job ID");
       return res.status(400).json({ error: "Invalid Job ID" });
     }
-    const jobExists = await queryWithRetry("SELECT 1 FROM jobs WHERE id = $1", [jobId]);
+    const jobExists = await queryWithRetry("SELECT 1 FROM jobs WHERE id = $1", [
+      jobId,
+    ]);
     if (jobExists.rowCount === 0) {
       console.log("Job not found");
       return res.status(404).json({ error: "job not found" });
     }
     if (!req.body) {
       console.log("Missing body");
-      return res.status(400).json({ error: "Missing body" })
+      return res.status(400).json({ error: "Missing body" });
     }
     const body = req.body;
-    if (!("applicantName" in body && "applicantEmail" in body && "resumeId" in body)) {
+    if (
+      !(
+        "applicantName" in body &&
+        "applicantEmail" in body &&
+        "resumeId" in body
+      )
+    ) {
       console.log("Missing required fields");
       return res.status(422).json({ error: "Missing required fields" });
     }
@@ -277,10 +291,13 @@ app.post("/api/jobs/:id/applications", async (req, res) => {
       console.log("Incorrect data type(s) in body");
       return res.status(422).json({ error: "Incorrect data type(s) in body" });
     }
-    const resumeExists = await queryWithRetry("SELECT 1 FROM resumes WHERE id = $1", [body.resumeId]);
+    const resumeExists = await queryWithRetry(
+      "SELECT 1 FROM resumes WHERE id = $1",
+      [body.resumeId]
+    );
     if (resumeExists.rowCount === 0) {
       console.log("Resume not found");
-      return res.status(404).json({ error: "Resume not found "});
+      return res.status(404).json({ error: "Resume not found " });
     }
     const query = `
       INSERT INTO applications
@@ -288,14 +305,21 @@ app.post("/api/jobs/:id/applications", async (req, res) => {
       VALUES ($1, $2, $3, $4)
       RETURNING *
     `;
-    const params = [body.applicantName, body.applicantEmail, body.resumeId, jobId];
+    const params = [
+      body.applicantName,
+      body.applicantEmail,
+      body.resumeId,
+      jobId,
+    ];
     const result = await queryWithRetry(query, params);
     if (result.rowCount !== 1) {
       console.log("Failed to insert application");
       return res.status(500).json({ error: "Internal server error" });
     }
     console.log("Application posted");
-    return res.status(201).json({ message: "Application posted", data: result.rows[0] });
+    return res
+      .status(201)
+      .json({ message: "Application posted", data: result.rows[0] });
   } catch (err) {
     console.error("Error posting application:", err);
     return res.status(500).json({ error: "Internal server error" });
@@ -309,7 +333,7 @@ app.get("/api/jobs/:id/applications", async (req, res) => {
     const jobId = parseInt(req.params.id);
     if (isNaN(jobId)) {
       console.log("Invalid job ID");
-      return res.status(400).json({ error: "Invalid job ID"});
+      return res.status(400).json({ error: "Invalid job ID" });
     }
     const query = `
       SELECT * FROM applications
@@ -318,7 +342,10 @@ app.get("/api/jobs/:id/applications", async (req, res) => {
     const params = [jobId];
     const result = await queryWithRetry(query, params);
     console.log(`Retrived applications for job ${jobId}`);
-    return res.json({ message: `Retrived applications for job ${jobId}`, data: result.rows});
+    return res.json({
+      message: `Retrived applications for job ${jobId}`,
+      data: result.rows,
+    });
   } catch (err) {
     console.error("Error fetching applications:", err);
     return res.status(500).json({ error: "Internal server error" });
@@ -332,7 +359,7 @@ app.get("/api/applications/:id", async (req, res) => {
     const applicationId = parseInt(req.params.id);
     if (isNaN(applicationId)) {
       console.log("Invalid application ID");
-      return res.status(400).json({ error: "Invalid application ID"});
+      return res.status(400).json({ error: "Invalid application ID" });
     }
     const query = `
       SELECT * FROM applications
@@ -359,7 +386,7 @@ app.delete("/api/applications/:id", async (req, res) => {
     const applicationId = parseInt(req.params.id);
     if (isNaN(applicationId)) {
       console.log("Invalid application ID");
-      return res.status(400).json({ error: "Invalid application ID"});
+      return res.status(400).json({ error: "Invalid application ID" });
     }
     const query = `
       DELETE FROM applications WHERE id = $1
@@ -372,7 +399,7 @@ app.delete("/api/applications/:id", async (req, res) => {
       return res.status(404).json({ error: "Application not found" });
     }
     console.log("Deleted application");
-    return res.json({ message: "Deleted application", data: result.rows[0] })
+    return res.json({ message: "Deleted application", data: result.rows[0] });
   } catch (err) {
     console.error("Error deleting application:", err);
     return res.status(500).json({ error: "Internal server error" });

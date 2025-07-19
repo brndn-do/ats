@@ -62,32 +62,30 @@ errors:
 
 */
 describe("Resumes integration tests", () => {
-  let pool;
-  let S3Client;
+  const fakeResumeId = 123;
+  const fakeResumeFileName = "resume.pdf";
+  const fakeObjectKey = "abc.pdf";
+
+  const pool = new Pool();
+  const S3Client = require("@aws-sdk/client-s3").S3Client;
   beforeEach(() => {
-    pool = new Pool();
     pool.query.mockClear();
-    S3Client = require("@aws-sdk/client-s3").S3Client;
     S3Client.mSend.mockClear();
   });
 
+  // Configure mock for DB calls
+  pool.query.mockResolvedValue({
+    rows: [
+      {
+        id: fakeResumeId,
+        original_filename: fakeResumeFileName,
+        object_key: fakeObjectKey,
+      },
+    ],
+    rowCount: 1,
+  });
+
   it("POST /api/resumes should upload a new resume and return its data", async () => {
-    const fakeResumeId = 123;
-    const fakeResumeFileName = "resume.pdf";
-    const fakeObjectKey = "abc.pdf";
-
-    // Configure mock for the DB INSERT call
-    pool.query.mockResolvedValue({
-      rows: [
-        {
-          id: fakeResumeId,
-          original_filename: fakeResumeFileName,
-          object_key: fakeObjectKey,
-        },
-      ],
-      rowCount: 1,
-    });
-
     // Configure S3 mock for the upload (from POST)
     S3Client.mSend.mockResolvedValue({}); // Ensure it returns a resolved promise
 
@@ -107,22 +105,6 @@ describe("Resumes integration tests", () => {
   });
 
   it("GET /api/resumes/:id should retrieve a specific resume", async () => {
-    const fakeResumeId = 123;
-    const fakeResumeFileName = "example_resume.pdf";
-    const fakeObjectKey = "abc.pdf";
-
-    // Configure mock for the DB SELECT call
-    pool.query.mockResolvedValue({
-      rows: [
-        {
-          id: fakeResumeId,
-          original_filename: fakeResumeFileName,
-          object_key: fakeObjectKey,
-        },
-      ],
-      rowCount: 1,
-    });
-
     // Configure S3 mock for the download
     const mockPdfStream = Readable.from(["fake pdf content"]);
     S3Client.mSend.mockResolvedValue({
@@ -142,6 +124,12 @@ describe("Resumes integration tests", () => {
   });
 
   it("DELETE /api/resumes/:id should delete a resume", async () => {
-    // TODO: Implement DELETE test
+    // Action: Delete the resume
+    const res = await request(app).delete(`/api/resumes/${fakeResumeId}`);
+
+    // Assertions
+    expect(res.statusCode).toBe(204);
+    expect(res.body).toEqual({});
+    expect(pool.query).toHaveBeenCalledTimes(2); // Verify DB was called twice: verify it exists, then delete
   });
 });
