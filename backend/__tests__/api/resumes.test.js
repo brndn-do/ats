@@ -1,5 +1,5 @@
 import request from "supertest";
-import app from "./app.js";
+import app from "../../app.js";
 import path from "path";
 
 import { Pool } from "pg";
@@ -61,7 +61,7 @@ errors:
     S3/DB failure
 
 */
-describe("Resumes integration tests", () => {
+describe("API /api/resumes", () => {
   const fakeResumeId = 123;
   const fakeResumeFileName = "resume.pdf";
   const fakeObjectKey = "abc.pdf";
@@ -92,7 +92,7 @@ describe("Resumes integration tests", () => {
       // Action: Upload a valid resume
       const res = await request(app)
         .post("/api/resumes")
-        .attach("resume", path.join(__dirname, "..", fakeResumeFileName));
+        .attach("resume", path.join(__dirname, "..", "fixtures", fakeResumeFileName));
 
       // Assertions
       expect(res.statusCode).toBe(201);
@@ -116,7 +116,7 @@ describe("Resumes integration tests", () => {
       // Action: upload non-pdf
       const res = await request(app)
         .post("/api/resumes")
-        .attach("resume", path.join(__dirname, "..", "README.md"));
+        .attach("resume", path.join(__dirname, "..", "fixtures", "resume.txt"));
       expect(res.statusCode).toBe(400);
       const body = JSON.parse(res.text);
       expect(body.error).toBe("Received non-PDF file");

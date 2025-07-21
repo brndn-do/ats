@@ -1,0 +1,15 @@
+John Doe - Resume
+Email: john.doe@example.com | Phone: (123) 456-7890 | LinkedIn: linkedin.com/in/johndoe
+Professional Summary
+Experienced software engineer with a strong background in developing scalable web applications
+and working across the full stack. Passionate about learning new technologies and improving code
+quality.
+Work Experience
+Senior Software Engineer - TechCorp (2020 - Present)
+Lead a team of 5 in building cloud-based applications. Improved system performance by 30%
+through optimization.
+Software Engineer - WebSolutions Inc. (2017 - 2020)
+Developed and maintained full-stack applications. Worked closely with clients to deliver tailored
+solutions.
+Education
+B.S. in Computer Science, University of Somewhere, 2013 - 2017
