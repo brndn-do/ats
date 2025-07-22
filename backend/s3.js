@@ -69,7 +69,7 @@ async function downloadResume(objectKey, retries = 3, delay = 1000) {
   }
 }
 
-// Given an S3 object key, deleted the object from S3 bucket
+// Given an S3 object key, deletes the object from S3 bucket
 // Input: object key, optional retry count, optional delay
 // Returns void
 async function deleteResume(objectKey, retries = 3, delay = 1000) {
