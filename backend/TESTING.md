@@ -52,15 +52,21 @@ Error paths are primarily tested within the **API Tests** (`__tests__/api/`).
 
 ### Running Tests
 
-Use `jest` and specify a path to run a specific test suite:
+Use `npm test` to run all tests, or use one of the specific scripts in `package.json` to run a targeted suite.
 
 ```bash
 # Run all tests
 npm test
 
 # Run only unit tests
-npm run test -- __tests__/unit
+npm run test:unit
 
 # Run only API tests
-npm run test -- __tests__/api
+npm run test:api
+
+# Run only integration tests
+npm run test:integration
+
+# Run only E2E tests
+npm run test:e2e
 ```
