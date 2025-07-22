@@ -4,7 +4,6 @@ import path from "path";
 
 import { Pool } from "pg";
 import { Readable } from "stream";
-import { json } from "stream/consumers";
 
 // Mocks the `pg` module. `new Pool()` will always return the same singleton
 // mock object, allowing tests to configure its behavior for database calls.
