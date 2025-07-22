@@ -41,26 +41,6 @@ describe("Root route test", () => {
   });
 });
 
-// Resources: resumes, jobs, applications
-
-/*
-errors:
-  POST /api/resumes
-    missing file
-    non-PDF file
-    S3/DB failure
-
-  GET /api/resumes/:id
-    invalid IDs (not integer)
-    resume not found
-    S3/DB failure
-
-  DELETE /api/resumes/:id
-    invalid IDs (not integer)
-    resume not found
-    S3/DB failure
-
-*/
 describe("API /api/resumes", () => {
   const fakeResumeId = 123;
   const fakeResumeFileName = "resume.pdf";
@@ -92,7 +72,10 @@ describe("API /api/resumes", () => {
       // Action: Upload a valid resume
       const res = await request(app)
         .post("/api/resumes")
-        .attach("resume", path.join(__dirname, "..", "fixtures", fakeResumeFileName));
+        .attach(
+          "resume",
+          path.join(__dirname, "..", "fixtures", fakeResumeFileName)
+        );
 
       // Assertions
       expect(res.statusCode).toBe(201);
@@ -121,7 +104,7 @@ describe("API /api/resumes", () => {
       const body = JSON.parse(res.text);
       expect(body.error).toBe("Received non-PDF file");
       expect(pool.query).toHaveBeenCalledTimes(0); // Verify no query was used
-    })
+    });
   });
 
   describe("GET /api/resumes/:id", () => {
