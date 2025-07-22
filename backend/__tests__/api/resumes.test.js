@@ -97,6 +97,9 @@ describe("POST /api/resumes", () => {
     // Configure mock for DB call
     pool.query.mockRejectedValue(new Error());
 
+    // Configure S3 mock for the upload (from POST)
+    S3Client.mSend.mockResolvedValue({}); // Ensure it returns a resolved promise
+
     // Action: Upload a valid resume
     const res = await request(app)
       .post("/api/resumes")
@@ -111,6 +114,17 @@ describe("POST /api/resumes", () => {
     expect(body.error).toBe("Internal server error");
   });
   it("should return 500 if S3 fails", async () => {
+    // Configure mock for DB calls
+    pool.query.mockResolvedValueOnce({
+      rows: [
+        {
+          id: fakeResumeId,
+          original_filename: fakeResumeFileName,
+          object_key: fakeObjectKey,
+        },
+      ],
+      rowCount: 1,
+    });
     // Configure S3 mock
     S3Client.mSend.mockRejectedValue(new Error());
 
@@ -158,6 +172,69 @@ describe("GET /api/resumes/:id", () => {
     expect(res.body.toString()).toBe("fake pdf content"); // Changed from res.text
     expect(pool.query).toHaveBeenCalledTimes(1); // Verify DB was called
     expect(S3Client.mSend).toHaveBeenCalledTimes(1); // Verify S3 was called
+  });
+  it("should return 400 if id is not int", async () => {
+    const res = await request(app).get("/api/resumes/abc");
+
+    expect(res.statusCode).toBe(400);
+    const body = JSON.parse(res.text);
+    expect(body.error).toBe("Invalid resume ID");
+  });
+  it("should return 404 if resume does not exist", async () => {
+    // configure DB mock
+    pool.query.mockResolvedValueOnce({
+      rows: [],
+      rowCount: 0, // did not find
+    });
+
+    const res = await request(app).get(`/api/resumes/${fakeResumeId}`);
+
+    expect(res.statusCode).toBe(404);
+    const body = JSON.parse(res.text);
+    expect(body.error).toBe("Resume not found");
+  });
+  it("should return 500 if DB fails", async () => {
+    // Configure mock for DB call
+    pool.query.mockRejectedValue(new Error());
+
+    // Configure S3 mock
+    const mockPdfStream = Readable.from(["fake pdf content"]);
+    S3Client.mSend.mockResolvedValue({
+      ContentType: "application/pdf",
+      Body: mockPdfStream,
+    });
+
+    // Action: Download the resume
+    const res = await request(app).get(`/api/resumes/${fakeResumeId}`);
+
+    // Assertions
+    expect(res.statusCode).toBe(500);
+    const body = JSON.parse(res.text);
+    expect(body.error).toBe("Internal server error");
+  });
+  it("should return 500 if S3 fails", async () => {
+    // Configure mock for DB calls
+    pool.query.mockResolvedValueOnce({
+      rows: [
+        {
+          id: fakeResumeId,
+          original_filename: fakeResumeFileName,
+          object_key: fakeObjectKey,
+        },
+      ],
+      rowCount: 1,
+    });
+
+    // Configure S3 mock
+    S3Client.mSend.mockRejectedValue(new Error());
+
+    // Action: Download the resume
+    const res = await request(app).get(`/api/resumes/${fakeResumeId}`);
+
+    // Assertions
+    expect(res.statusCode).toBe(500);
+    const body = JSON.parse(res.text);
+    expect(body.error).toBe("Internal server error");
   });
 });
 
