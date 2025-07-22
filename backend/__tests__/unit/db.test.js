@@ -9,6 +9,8 @@ jest.mock("pg", () => {
   return { Pool: jest.fn(() => mPool) };
 });
 
+const errMsg = "DB connection error";
+
 describe("queryWithRetry", () => {
   const id = 1;
   const query = `
@@ -33,7 +35,7 @@ describe("queryWithRetry", () => {
   });
 
   it("should succeed after one retry if the first attempt fails", async () => {
-    pool.query.mockRejectedValueOnce(new Error("DB connection error"));
+    pool.query.mockRejectedValueOnce(new Error(errMsg));
     pool.query.mockResolvedValueOnce(mockResolvedValue);
     const dbResult = await queryWithRetry(query, params);
     expect(dbResult).toBe(mockResolvedValue);
@@ -41,10 +43,8 @@ describe("queryWithRetry", () => {
   });
 
   it("should throw an error after all retry attempts fail", async () => {
-    pool.query.mockRejectedValue(new Error("DB connection error"));
-    await expect(queryWithRetry(query, params)).rejects.toThrow(
-      "DB connection error"
-    );
+    pool.query.mockRejectedValue(new Error(errMsg));
+    await expect(queryWithRetry(query, params)).rejects.toThrow(errMsg);
     expect(pool.query).toHaveBeenCalledTimes(3);
   });
 
