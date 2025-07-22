@@ -4,6 +4,7 @@ import path from "path";
 
 import { Pool } from "pg";
 import { Readable } from "stream";
+import { json } from "stream/consumers";
 
 // Mocks the `pg` module. `new Pool()` will always return the same singleton
 // mock object, allowing tests to configure its behavior for database calls.
@@ -36,8 +37,8 @@ const fakeObjectKey = "abc.pdf";
 const pool = new Pool();
 const S3Client = require("@aws-sdk/client-s3").S3Client;
 beforeEach(() => {
-  pool.query.mockClear();
-  S3Client.mSend.mockClear();
+  pool.query.mockReset();
+  S3Client.mSend.mockReset();
 });
 
 describe("POST /api/resumes", () => {
@@ -91,6 +92,40 @@ describe("POST /api/resumes", () => {
     const body = JSON.parse(res.text);
     expect(body.error).toBe("Received non-PDF file");
     expect(pool.query).toHaveBeenCalledTimes(0); // Verify no query was used
+  });
+  it("should return 500 if DB fails", async () => {
+    // Configure mock for DB call
+    pool.query.mockRejectedValue(new Error());
+
+    // Action: Upload a valid resume
+    const res = await request(app)
+      .post("/api/resumes")
+      .attach(
+        "resume",
+        path.join(__dirname, "..", "fixtures", fakeResumeFileName)
+      );
+
+    // Assertions
+    expect(res.statusCode).toBe(500);
+    const body = JSON.parse(res.text);
+    expect(body.error).toBe("Internal server error");
+  });
+  it("should return 500 if S3 fails", async () => {
+    // Configure S3 mock
+    S3Client.mSend.mockRejectedValue(new Error());
+
+    // Action: Upload a valid resume
+    const res = await request(app)
+      .post("/api/resumes")
+      .attach(
+        "resume",
+        path.join(__dirname, "..", "fixtures", fakeResumeFileName)
+      );
+
+    // Assertions
+    expect(res.statusCode).toBe(500);
+    const body = JSON.parse(res.text);
+    expect(body.error).toBe("Internal server error");
   });
 });
 
