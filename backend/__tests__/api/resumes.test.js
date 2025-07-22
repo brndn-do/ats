@@ -289,4 +289,52 @@ describe("DELETE /api/resumes/:id", () => {
     expect(res.body.error).toBe("Invalid resume ID");
     expect(pool.query).not.toHaveBeenCalled();
   });
+
+  it("should return 500 if the first DB query fails", async () => {
+    // Configure mock for DB call
+    pool.query.mockRejectedValue(new Error("DB connection error"));
+
+    // Action: Delete the resume
+    const res = await request(app).delete(`/api/resumes/${fakeResumeId}`);
+
+    // Assertions
+    expect(res.statusCode).toBe(500);
+    expect(res.body.error).toBe("Internal server error");
+  });
+
+  it("should return 500 if S3 fails", async () => {
+    // Configure mock for DB call to succeed
+    pool.query.mockResolvedValueOnce({
+      rows: [{ object_key: fakeObjectKey }],
+      rowCount: 1,
+    });
+    // Configure S3 mock to fail
+    S3Client.mSend.mockRejectedValue(new Error("S3 connection error"));
+
+    // Action: Delete the resume
+    const res = await request(app).delete(`/api/resumes/${fakeResumeId}`);
+
+    // Assertions
+    expect(res.statusCode).toBe(500);
+    expect(res.body.error).toBe("Internal server error");
+  });
+
+  it("should return 500 if the second DB query fails", async () => {
+    // Configure mock for first DB call to succeed
+    pool.query.mockResolvedValueOnce({
+      rows: [{ object_key: fakeObjectKey }],
+      rowCount: 1,
+    });
+    // Configure S3 mock to succeed
+    S3Client.mSend.mockResolvedValue({});
+    // Configure mock for second DB call to fail
+    pool.query.mockRejectedValue(new Error("DB connection error"));
+
+    // Action: Delete the resume
+    const res = await request(app).delete(`/api/resumes/${fakeResumeId}`);
+
+    // Assertions
+    expect(res.statusCode).toBe(500);
+    expect(res.body.error).toBe("Internal server error");
+  });
 });
