@@ -23,6 +23,7 @@ jest.mock("@aws-sdk/client-s3", () => {
 });
 
 const S3Client = require("@aws-sdk/client-s3").S3Client;
+const errMsg = "S3 connection error";
 
 beforeEach(() => {
   S3Client.mSend.mockReset();
@@ -39,16 +40,14 @@ describe("uploadResume", () => {
     expect(S3Client.mSend).toHaveBeenCalledTimes(1);
   });
   it("should succeed after one retry if first attempt fails", async () => {
-    S3Client.mSend.mockRejectedValueOnce(new Error("S3 connection error"));
+    S3Client.mSend.mockRejectedValueOnce(new Error(errMsg));
     const S3Result = await uploadResume(pdfBuffer);
     expect(S3Result.objectKey).toMatch(".pdf");
     expect(S3Client.mSend).toHaveBeenCalledTimes(2);
   });
   it("should throw an error after all retry attempts fail", async () => {
-    S3Client.mSend.mockRejectedValue(new Error("S3 connection error"));
-    await expect(uploadResume(pdfBuffer)).rejects.toThrow(
-      "S3 connection error"
-    );
+    S3Client.mSend.mockRejectedValue(new Error(errMsg));
+    await expect(uploadResume(pdfBuffer)).rejects.toThrow(errMsg);
     expect(S3Client.mSend).toHaveBeenCalledTimes(3);
   });
   it("should correctly pass params to PutObjectCommand", async () => {
@@ -77,17 +76,15 @@ describe("downloadResume", () => {
     expect(S3Client.mSend).toHaveBeenCalledTimes(1);
   });
   it("should succeed after one retry if the first attempt fails", async () => {
-    S3Client.mSend.mockRejectedValueOnce(new Error("S3 connection error"));
+    S3Client.mSend.mockRejectedValueOnce(new Error(errMsg));
     S3Client.mSend.mockResolvedValueOnce(mockResultObject);
     const S3Result = await downloadResume(objectKey);
     expect(S3Result).toBe(mockResultObject);
     expect(S3Client.mSend).toHaveBeenCalledTimes(2);
   });
   it("should throw an error after all retry attempts fail", async () => {
-    S3Client.mSend.mockRejectedValue(new Error("S3 connection error"));
-    await expect(downloadResume(objectKey)).rejects.toThrow(
-      "S3 connection error"
-    );
+    S3Client.mSend.mockRejectedValue(new Error(errMsg));
+    await expect(downloadResume(objectKey)).rejects.toThrow(errMsg);
     expect(S3Client.mSend).toHaveBeenCalledTimes(3);
   });
   it("should correctly pass params to GetObjectCommand", async () => {
@@ -102,4 +99,32 @@ describe("downloadResume", () => {
   });
 });
 
-describe("deleteResume", () => {});
+describe("deleteResume", () => {
+  const objectKey = "acb.pdf";
+  it("should succeed on the first attempt and return nothing", async () => {
+    const S3Result = await deleteResume(objectKey);
+    expect(S3Result).toBeUndefined();
+    expect(S3Client.mSend).toHaveBeenCalledTimes(1);
+  });
+  it("should succeed after one retry if the first attempt fails", async () => {
+    S3Client.mSend.mockRejectedValueOnce(new Error(errMsg));
+    const S3Result = await deleteResume(objectKey);
+    expect(S3Result).toBeUndefined();
+    expect(S3Client.mSend).toHaveBeenCalledTimes(2);
+  });
+  it("should throw an error after all retry attempts fail", async () => {
+    S3Client.mSend.mockRejectedValue(new Error(errMsg));
+    await expect(deleteResume(objectKey)).rejects.toThrow(errMsg);
+    expect(S3Client.mSend).toHaveBeenCalledTimes(3);
+  });
+  it("should correctly pass params to DeleteObjectCommand", async () => {
+    await deleteResume(objectKey);
+    expect(DeleteObjectCommand).toHaveBeenCalledTimes(1);
+    expect(DeleteObjectCommand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        Bucket: expect.any(String),
+        Key: objectKey,
+      })
+    );
+  });
+});
