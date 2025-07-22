@@ -49,7 +49,7 @@ This project uses a layered testing strategy to ensure correctness and maintaina
 
 Work is in progress to build out the **Integration** and **End-to-End (E2E)** tests, which run against live services to verify real-world behavior.
 
-For a detailed breakdown of the testing layers, mock strategies, and how to run specific test suites, please see the **[TESTING.md](TESTING.md)** file.
+For a detailed breakdown of the testing layers, mock strategies, and how to run specific test suites, please see the **[TESTING.md](backend/TESTING.md)** file.
 
 ---
 
