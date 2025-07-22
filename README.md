@@ -122,8 +122,6 @@ See [TESTING.md](TESTING.md) for more detailed testing commands.
 | POST   | `/api/jobs`                  | **Admin** – Create a new job.           |
 | GET    | `/api/jobs/:id`              | Get a single job by its ID.             |
 | DELETE | `/api/jobs/:id`              | **Admin** – Delete a job by its ID.     |
-| GET    | `/api/jobs/:id/applications` | **Admin** – List all applications for a specific job. |
-| POST   | `/api/jobs/:id/applications` | Submit a new application for a specific job. |
 
 ### Applications
 
@@ -131,6 +129,8 @@ See [TESTING.md](TESTING.md) for more detailed testing commands.
 | ------ | ----------------------- | ------------------------------------ |
 | GET    | `/api/applications/:id` | Get a single application by its ID.  |
 | DELETE | `/api/applications/:id` | **Admin** – Delete an application by its ID. |
+| GET    | `/api/jobs/:id/applications` | **Admin** – List all applications for a specific job. |
+| POST   | `/api/jobs/:id/applications` | Submit a new application for a specific job. |
 
 ### Résumés
 
