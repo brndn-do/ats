@@ -4,35 +4,29 @@ A full‑stack web application for posting jobs, accepting applications with ré
 
 ---
 
-## Roadmap
+## Features & Roadmap
 
-| Status | Item                                                                    |
-| ------ | ----------------------------------------------------------------------- |
-| ✓      | Public job listings (GET `/api/jobs`)                                   |
-| ✓      | Submit application with résumé upload                                   |
-| ✓      | Admin CRUD for jobs, applications & résumés                             |
-| \~     | Front‑end React UI (public job list, application form, admin dashboard) |
-| -      | JWT‑based auth with a hard‑coded admin account                          |
-| -      | Résumé text parsing & keyword matching                                  |
-| -      | Login & status page                                                     |
-| -      | Unit & integration tests                                                |
-| -      | Deployment (containerize & host)                                        |
+This project is currently focused on the backend API. The front-end is not yet started.
 
----
+| Status      | Feature                                       |
+| :---------- | :-------------------------------------------- |
+| `✓ Done`    | Core API for managing jobs and applications.  |
+| `✓ Done`    | PDF résumé uploads to and downloads from S3.  |
+| `~ In Prog` | Comprehensive testing suite.                  |
+| `- To Do`   | User authentication and authorization (JWT).  |
+| `- To Do`   | Automated résumé parsing and keyword matching.|
+| `- To Do`   | Front-end React UI.                           |
+| `- To Do`   | Containerization and deployment.              |
 
-## Todo's
-- Add file upload size limits and type checks
-- Refactor database schema to use GENERATED AS IDENTITY instead of SERIAL
-- Move error handling into centralized middleware
-- Add request rate limiting and CORS config
-- Add comprehensive input validation using zod or Joi
-- Add frontend form validation and API error handling
-- Stream résumé downloads from S3 instead of buffering
-- Write integration tests for key routes (e.g., application submission, résumé upload)
-- Add structured logging (e.g., pino, winston) with request correlation IDs
-- Implement exponential backoff for retries in S3/database operations
-- Replace raw SQL with an ORM like Prisma or Drizzle
-- Add CI/CD workflow (e.g., GitHub Actions) for linting, testing, and deploy
+### Planned Improvements
+
+- [ ] Refactor database schema to use `GENERATED AS IDENTITY` instead of `SERIAL`.
+- [ ] Move error handling into centralized middleware.
+- [ ] Add request rate limiting and CORS configuration.
+- [ ] Implement comprehensive input validation with a library like `zod` or `Joi`.
+- [ ] Add structured logging (e.g., `pino`, `winston`) with request correlation IDs.
+- [ ] Replace raw SQL with an ORM like Prisma or Drizzle.
+- [ ] Add a CI/CD workflow (e.g., GitHub Actions) for automated linting, testing, and deployment.
 
 ---
 
@@ -40,26 +34,36 @@ A full‑stack web application for posting jobs, accepting applications with ré
 
 | Layer     | Technology                     |
 | --------- | ------------------------------ |
-| Front‑end | React, Vite                    |
-| Back‑end  | Node, Express                  |
+| Back-end  | Node.js, Express.js            |
 | Database  | PostgreSQL (AWS RDS)           |
 | Storage   | AWS S3 (résumé PDFs)           |
+| Testing   | Jest, Supertest                |
+| Front-end | React, Vite (TBD)              |
 | Auth      | JSON Web Tokens + bcrypt (TBD) |
-| Dev Tools | ESLint + Prettier              |
 
 ---
 
-## Project Structure (server)
+## Testing
+
+This project uses a layered testing strategy to ensure correctness and maintainability. We have a solid foundation of **Unit** and **API** tests that mock external dependencies for speed and reliability.
+
+Work is in progress to build out the **Integration** and **End-to-End (E2E)** tests, which run against live services to verify real-world behavior.
+
+For a detailed breakdown of the testing layers, mock strategies, and how to run specific test suites, please see the **[TESTING.md](TESTING.md)** file.
+
+---
+
+## Project Structure
 
 ```
 backend/
+├─ __tests__/              # Unit, API, Integration, and E2E tests
 ├─ db_schema.pgsql         # SQL schema
 ├─ db.js                   # PostgreSQL helper pool
 ├─ s3.js                   # AWS S3 upload/download helpers
-├─ server.js               # Express entry point + routes
+├─ app.js                  # Express application and routes
+├─ server.js               # Server entry point
 └─ .env.example            # Sample environment variables
-frontend/
-├─ 
 ```
 
 ---
@@ -76,73 +80,64 @@ npm install
 
 ### 2 · Set Environment Variables
 
-Copy the sample file and fill in your credentials:
+Copy the sample file and fill in your credentials for PostgreSQL and AWS S3.
 
 ```bash
 cp .env.example .env
 ```
 
-`.env.example` snippet:
+### 3 · Create the Database Schema
 
-```env
-# PostgreSQL
-DB_USER=
-DB_HOST=
-DB_NAME=
-DB_PASSWORD=
-DB_PORT=5432
-
-# AWS S3
-S3_REGION=
-S3_ACCESS_KEY=
-S3_SECRET_ACCESS_KEY=
-S3_BUCKET_NAME=
-```
-
-### 3 · Create the Database
+Ensure your PostgreSQL server is running and you have created the database specified in your `.env` file.
 
 ```bash
-psql -U postgres -d ats -f db_schema.pgsql
+psql -U <your_db_user> -d <your_db_name> -f db_schema.pgsql
 ```
 
 ### 4 · Run the Server
 
 ```bash
-node server.js
+npm start
 ```
 
-The API will start on `http://localhost:3000`.
+The API will start on `http://localhost:3000` by default.
+
+### 5 · Run Tests
+
+```bash
+npm test
+```
+
+See [TESTING.md](TESTING.md) for more detailed testing commands.
 
 ---
 
-## API Reference (v0)
+## API Reference
 
 ### Jobs
 
 | Method | Endpoint                     | Description                             |
 | ------ | ---------------------------- | --------------------------------------- |
-| GET    | `/api/jobs`                  | List all jobs                           |
-| POST   | `/api/jobs`                  | **Admin** – Create a job                |
-| GET    | `/api/jobs/:id`              | Fetch one job                           |
-| DELETE | `/api/jobs/:id`              | **Admin** – Delete a job                |
-| GET    | `/api/jobs/:id/applications` | **Admin** – List applications for a job |
-| POST   | `/api/jobs/:id/applications` | Submit an application                   |
+| GET    | `/api/jobs`                  | Get a list of all jobs.                 |
+| POST   | `/api/jobs`                  | **Admin** – Create a new job.           |
+| GET    | `/api/jobs/:id`              | Get a single job by its ID.             |
+| DELETE | `/api/jobs/:id`              | **Admin** – Delete a job by its ID.     |
+| GET    | `/api/jobs/:id/applications` | **Admin** – List all applications for a specific job. |
+| POST   | `/api/jobs/:id/applications` | Submit a new application for a specific job. |
 
 ### Applications
 
-| Method | Endpoint                | Description                       |
-| ------ | ----------------------- | --------------------------------- |
-| GET    | `/api/applications/:id` | Fetch an application              |
-| DELETE | `/api/applications/:id` | **Admin** – Delete an application |
+| Method | Endpoint                | Description                          |
+| ------ | ----------------------- | ------------------------------------ |
+| GET    | `/api/applications/:id` | Get a single application by its ID.  |
+| DELETE | `/api/applications/:id` | **Admin** – Delete an application by its ID. |
 
 ### Résumés
 
-| Method | Endpoint           | Description                 |
-| ------ | ------------------ | --------------------------- |
-| POST   | `/api/resumes`     | Upload résumé PDF           |
-| GET    | `/api/resumes/:id` | **Admin** – Download résumé |
-| DELETE | `/api/resumes/:id` | **Admin** – Delete résumé   |
+| Method | Endpoint           | Description                          |
+| ------ | ------------------ | ------------------------------------ |
+| POST   | `/api/resumes`     | Upload a new résumé PDF.             |
+| GET    | `/api/resumes/:id` | **Admin** – Download a résumé by its ID. |
+| DELETE | `/api/resumes/:id` | **Admin** – Delete a résumé by its ID. |
 
-> **HTTP 400** for malformed requests, **422** for validation errors, **401/403** will be added once auth is live.
-
----
+> **HTTP 400** for malformed requests, **404** for not found, **422** for validation errors. **401/403** will be added once auth is live.
