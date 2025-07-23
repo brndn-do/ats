@@ -246,7 +246,7 @@ app.delete("/api/jobs/:id", async (req, res) => {
       return res.status(404).json({ error: "Job not found" });
     }
     console.log("Deleted job");
-    return res.json({ message: "Deleted job", data: result.rows[0] });
+    return res.status(204).send();
   } catch (err) {
     console.error("Error deleting job:", err);
     return res.status(500).json({ error: "Internal server error" });
