@@ -15,12 +15,13 @@ beforeEach(() => {
   pool.query.mockReset();
 });
 
+const jobData = {
+  title: "Software Engineer",
+  description: "Builds software",
+  adminId: 1,
+};
+
 describe("POST /api/jobs", () => {
-  const jobData = {
-    title: "Software Engineer",
-    description: "Builds software",
-    adminId: 1,
-  };
   const mockResolvedValue = { rows: [{ id: 1, ...jobData }], rowCount: 1 };
   it("should insert a job and return its data", async () => {
     // Configure mock
@@ -80,8 +81,8 @@ describe("POST /api/jobs", () => {
   });
   describe("incorrect data type(s) in body", () => {
     it("should return 422 if title is not string", async () => {
-      const {title, ...rest} = jobData;
-      const badJobData = {title: 123, ...rest}
+      const { title, ...rest } = jobData;
+      const badJobData = { title: 123, ...rest };
       // Action: send request with bad title
       const res = await request(app).post("/api/jobs").send(badJobData);
       // Assertions
@@ -137,16 +138,45 @@ describe("POST /api/jobs", () => {
     expect(body.error).toBe("Internal server error");
   });
 });
+
 describe("GET /api/jobs", () => {
-  it("should get all jobs", async () => {});
-  it("should return 500 if db failure", async () => {});
+  const mockResolvedValue = { rows: [{ id: 1, ...jobData }], rowCount: 1 };
+  
+  it("should get all jobs", async () => {
+    // Configure mock
+    pool.query.mockResolvedValueOnce(mockResolvedValue);
+
+    // Action: get all jobs
+    const res = await request(app).get("/api/jobs");
+
+    // Assertions
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.text);
+    expect(body.message).toBe("Jobs retrieved");
+    expect(body.data).toEqual(mockResolvedValue.rows);
+  });
+
+  it("should return 500 if db failure", async () => {
+    // Configure mock
+    pool.query.mockRejectedValue(new Error("DB connection error"));
+
+    // Action: get all jobs
+    const res = await request(app).get("/api/jobs");
+
+    // Assertions
+    expect(res.statusCode).toBe(500);
+    const body = JSON.parse(res.text);
+    expect(body.error).toBe("Internal server error");
+  });
 });
+
 describe("GET /api/jobs/:id", () => {
   it("should get a job by its id", async () => {});
   it("should return 400 if id is not int", async () => {});
   it("should return 404 if job is not found", async () => {});
   it("should return 500 if db failure", async () => {});
 });
+
 describe("DELETE /api/jobs/:id", () => {
   it("should delete a job and return 204", async () => {});
   it("should return 400 if id is not int", async () => {});
