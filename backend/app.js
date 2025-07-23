@@ -204,7 +204,7 @@ app.get("/api/jobs/:id", async (req, res) => {
   console.log("Received GET request /api/jobs/:id");
   try {
     const jobId = parseInt(req.params.id);
-    if (isNaN(jobId)) {
+    if (isNaN(jobId) || !Number.isInteger(parseFloat(req.params.id))) {
       console.log("Invalid job ID");
       return res.status(400).json({ error: "Invalid job ID" });
     }
