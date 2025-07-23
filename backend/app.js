@@ -258,7 +258,7 @@ app.post("/api/jobs/:id/applications", async (req, res) => {
   console.log("Received POST request /api/jobs/:id/applications");
   try {
     const jobId = parseInt(req.params.id);
-    if (isNaN(jobId)) {
+    if (isNaN(jobId) || !Number.isInteger(parseFloat(req.params.id))) {
       console.log("Invalid Job ID");
       return res.status(400).json({ error: "Invalid Job ID" });
     }
