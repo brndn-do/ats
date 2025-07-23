@@ -365,7 +365,7 @@ app.get("/api/applications/:id", async (req, res) => {
   console.log("Received GET request /api/applications/:id");
   try {
     const applicationId = parseInt(req.params.id);
-    if (isNaN(applicationId)) {
+    if (isNaN(applicationId) || !Number.isInteger(parseFloat(req.params.id))) {
       console.log("Invalid application ID");
       return res.status(400).json({ error: "Invalid application ID" });
     }
@@ -392,7 +392,7 @@ app.delete("/api/applications/:id", async (req, res) => {
   console.log("Received DELETE request /api/applications/:id");
   try {
     const applicationId = parseInt(req.params.id);
-    if (isNaN(applicationId)) {
+    if (isNaN(applicationId) || !Number.isInteger(parseFloat(req.params.id))) {
       console.log("Invalid application ID");
       return res.status(400).json({ error: "Invalid application ID" });
     }
@@ -407,7 +407,7 @@ app.delete("/api/applications/:id", async (req, res) => {
       return res.status(404).json({ error: "Application not found" });
     }
     console.log("Deleted application");
-    return res.json({ message: "Deleted application", data: result.rows[0] });
+    return res.status(204).send();
   } catch (err) {
     console.error("Error deleting application:", err);
     return res.status(500).json({ error: "Internal server error" });

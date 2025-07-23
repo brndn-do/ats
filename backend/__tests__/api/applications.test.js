@@ -278,6 +278,111 @@ describe("GET /api/jobs/:id/applications", () => {
   });
 });
 
-describe("GET /api/aplications/:id", () => {});
+describe("GET /api/applications/:id", () => {
+  const applicationId = 1;
+  const applicationData = { id: applicationId, applicant_name: 'John Doe', applicant_email: 'john.doe@example.com', resume_id: 123, job_id: 1 };
 
-describe("DELETE /api/aplications/:id", () => {});
+  it("should get an application by its id", async () => {
+    pool.query.mockResolvedValueOnce({ rows: [applicationData], rowCount: 1 });
+
+    const res = await request(app).get(`/api/applications/${applicationId}`);
+
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.text);
+    expect(body.message).toBe("Application retrieved");
+    expect(body.data).toEqual(applicationData);
+    expect(pool.query).toHaveBeenCalledTimes(1);
+  });
+
+  it("should return 400 if id is not a number", async () => {
+    const res = await request(app).get("/api/applications/abc");
+
+    expect(res.statusCode).toBe(400);
+    const body = JSON.parse(res.text);
+    expect(body.error).toBe("Invalid application ID");
+    expect(pool.query).not.toHaveBeenCalled();
+  });
+
+  it("should return 400 if id is not an integer", async () => {
+    const res = await request(app).get("/api/applications/1.23");
+
+    expect(res.statusCode).toBe(400);
+    const body = JSON.parse(res.text);
+    expect(body.error).toBe("Invalid application ID");
+    expect(pool.query).not.toHaveBeenCalled();
+  });
+
+  it("should return 404 if application is not found", async () => {
+    pool.query.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+
+    const res = await request(app).get("/api/applications/999");
+
+    expect(res.statusCode).toBe(404);
+    const body = JSON.parse(res.text);
+    expect(body.error).toBe("Application not found");
+    expect(pool.query).toHaveBeenCalledTimes(1);
+  });
+
+  it("should return 500 if query fails", async () => {
+    pool.query.mockRejectedValue(new Error("DB error"));
+
+    const res = await request(app).get(`/api/applications/${applicationId}`);
+
+    expect(res.statusCode).toBe(500);
+    const body = JSON.parse(res.text);
+    expect(body.error).toBe("Internal server error");
+  });
+});
+
+describe("DELETE /api/applications/:id", () => {
+  const applicationId = 1;
+
+  it("should delete an application and return 204", async () => {
+    pool.query.mockResolvedValueOnce({ rows: [{ id: applicationId }], rowCount: 1 });
+
+    const res = await request(app).delete(`/api/applications/${applicationId}`);
+
+    expect(res.statusCode).toBe(204);
+    expect(res.body).toEqual({});
+    expect(pool.query).toHaveBeenCalledTimes(1);
+  });
+
+  it("should return 400 if id is not a number", async () => {
+    const res = await request(app).delete("/api/applications/abc");
+
+    expect(res.statusCode).toBe(400);
+    const body = JSON.parse(res.text);
+    expect(body.error).toBe("Invalid application ID");
+    expect(pool.query).not.toHaveBeenCalled();
+  });
+
+  it("should return 400 if id is not an integer", async () => {
+    const res = await request(app).delete("/api/applications/1.23");
+
+    expect(res.statusCode).toBe(400);
+    const body = JSON.parse(res.text);
+    expect(body.error).toBe("Invalid application ID");
+    expect(pool.query).not.toHaveBeenCalled();
+  });
+
+  it("should return 404 if application is not found", async () => {
+    pool.query.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+
+    const res = await request(app).delete("/api/applications/999");
+
+    expect(res.statusCode).toBe(404);
+    const body = JSON.parse(res.text);
+    expect(body.error).toBe("Application not found");
+    expect(pool.query).toHaveBeenCalledTimes(1);
+  });
+
+  it("should return 500 if query fails", async () => {
+    pool.query.mockRejectedValue(new Error("DB error"));
+
+    const res = await request(app).delete(`/api/applications/${applicationId}`);
+
+    expect(res.statusCode).toBe(500);
+    const body = JSON.parse(res.text);
+    expect(body.error).toBe("Internal server error");
+  });
+});
