@@ -15,6 +15,7 @@ beforeEach(() => {
   pool.query.mockReset();
 });
 
+const jobId = 1;
 const jobData = {
   title: "Software Engineer",
   description: "Builds software",
@@ -22,7 +23,7 @@ const jobData = {
 };
 
 describe("POST /api/jobs", () => {
-  const mockResolvedValue = { rows: [{ id: 1, ...jobData }], rowCount: 1 };
+  const mockResolvedValue = { rows: [{ id: jobId, ...jobData }], rowCount: 1 };
   it("should insert a job and return its data", async () => {
     // Configure mock
     pool.query.mockResolvedValueOnce(mockResolvedValue);
@@ -141,7 +142,7 @@ describe("POST /api/jobs", () => {
 
 describe("GET /api/jobs", () => {
   const mockResolvedValue = { rows: [{ id: 1, ...jobData }], rowCount: 1 };
-  
+
   it("should get all jobs", async () => {
     // Configure mock
     pool.query.mockResolvedValueOnce(mockResolvedValue);
@@ -171,15 +172,118 @@ describe("GET /api/jobs", () => {
 });
 
 describe("GET /api/jobs/:id", () => {
-  it("should get a job by its id", async () => {});
-  it("should return 400 if id is not int", async () => {});
-  it("should return 404 if job is not found", async () => {});
-  it("should return 500 if db failure", async () => {});
+  const mockResolvedValue = { rows: [{id: jobId, ...jobData }], rowCount: 1};
+
+  it("should get a job by its id", async () => {
+    // Configure Mock
+    pool.query.mockResolvedValueOnce(mockResolvedValue);
+    
+    // Action: get job by id
+    const res = await request(app).get(`/api/jobs/${jobId}`);
+
+    // Assertions
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.text);
+    expect(body.message).toBe("Job retrieved");
+    expect(body.data).toEqual(mockResolvedValue.rows[0]);
+  });
+
+  it("should return 400 if id is not number", async () => {
+    // Action: request with invalid job id
+    const res = await request(app).get(`/api/jobs/num1`);
+
+    // Assertions
+    expect(res.statusCode).toBe(400);
+    const body = JSON.parse(res.text);
+    expect(body.error).toBe("Invalid job ID");
+    expect(pool.query).toHaveBeenCalledTimes(0);
+  });
+
+  it("should return 400 if id is not an integer", async () => {
+    // Action: request with invalid job id
+    const res = await request(app).get(`/api/jobs/1.23`);
+
+    // Assertions
+    expect(res.statusCode).toBe(400);
+    const body = JSON.parse(res.text);
+    expect(body.error).toBe("Invalid job ID");
+    expect(pool.query).toHaveBeenCalledTimes(0);
+  });
+
+  it("should return 404 if job is not found", async () => {
+    // Configure mock to find nothing
+    pool.query.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+
+    // Action: send request for job that doesn't exist
+    const res = await request(app).get("/api/jobs/999");
+
+    // Assertions
+    expect(res.statusCode).toBe(404);
+    const body = JSON.parse(res.text);
+    expect(body.error).toBe("Job not found");
+  });
+
+  it("should return 500 if db failure", async () => {
+    // Configure mock
+    pool.query.mockRejectedValue(new Error("DB connection error"));
+
+    // Action: send request
+    const res = await request(app).get("/api/jobs/1");
+
+    // Assertions
+    expect(res.statusCode).toBe(500);
+    const body = JSON.parse(res.text);
+    expect(body.error).toBe("Internal server error");
+  });
 });
 
 describe("DELETE /api/jobs/:id", () => {
-  it("should delete a job and return 204", async () => {});
-  it("should return 400 if id is not int", async () => {});
-  it("should return 404 if job is not found", async () => {});
-  it("should return 500 if db failure", async () => {});
+  it("should delete a job and return 204", async () => {
+    // Configure mock
+    pool.query.mockResolvedValueOnce({ rows: [{ id: 1 }], rowCount: 1 });
+
+    // Action: delete a job
+    const res = await request(app).delete(`/api/jobs/${jobId}`);
+
+    // Assertions
+    expect(res.statusCode).toBe(204);
+    expect(res.body).toEqual({});
+  });
+
+  it("should return 400 if id is not int", async () => {
+    // Action: send request with non-int id
+    const res = await request(app).delete("/api/jobs/abc");
+
+    // Assertions
+    expect(res.statusCode).toBe(400);
+    const body = JSON.parse(res.text);
+    expect(body.error).toBe("Invalid job ID");
+    expect(pool.query).toHaveBeenCalledTimes(0);
+  });
+
+  it("should return 404 if job is not found", async () => {
+    // Configure mock to find nothing
+    pool.query.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+
+    // Action: send request for job that doesn't exist
+    const res = await request(app).delete("/api/jobs/999");
+
+    // Assertions
+    expect(res.statusCode).toBe(404);
+    const body = JSON.parse(res.text);
+    expect(body.error).toBe("Job not found");
+  });
+
+  it("should return 500 if db failure", async () => {
+    // Configure mock
+    pool.query.mockRejectedValue(new Error("DB connection error"));
+
+    // Action: send request
+    const res = await request(app).delete("/api/jobs/1");
+
+    // Assertions
+    expect(res.statusCode).toBe(500);
+    const body = JSON.parse(res.text);
+    expect(body.error).toBe("Internal server error");
+  });
 });
