@@ -157,7 +157,8 @@ app.post("/api/jobs", async (req, res) => {
     if (
       typeof body.title != "string" ||
       typeof body.description != "string" ||
-      typeof body.adminId != "number"
+      typeof body.adminId != "number" ||
+      !Number.isInteger(body.adminId)
     ) {
       console.log("Incorrect data type(s) in body");
       return res.status(422).json({ error: "Incorrect data type(s) in body" });
