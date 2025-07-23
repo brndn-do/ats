@@ -5,6 +5,7 @@
   "main": "server.js",
   "scripts": {
     "test": "jest",
+    "test:coverage": "jest --coverage",
     "test:unit": "jest -- __tests__/unit",
     "test:api": "jest -- __tests__/api",
     "test:integration": "jest -- __tests__/integration",

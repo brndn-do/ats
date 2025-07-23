@@ -58,6 +58,9 @@ Use `npm test` to run all tests, or use one of the specific scripts in `package.
 # Run all tests
 npm test
 
+# Run tests with coverage
+npm run test:coverage
+
 # Run only unit tests
 npm run test:unit
 
