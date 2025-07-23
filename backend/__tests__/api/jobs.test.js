@@ -272,6 +272,7 @@ describe("DELETE /api/jobs/:id", () => {
     expect(res.statusCode).toBe(404);
     const body = JSON.parse(res.text);
     expect(body.error).toBe("Job not found");
+    expect(pool.query).toHaveBeenCalledTimes(1);
   });
 
   it("should return 500 if db failure", async () => {
