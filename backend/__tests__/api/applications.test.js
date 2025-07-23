@@ -128,7 +128,7 @@ describe("POST /api/jobs/:id/applications", () => {
   
       expect(res.statusCode).toBe(404);
       const body = JSON.parse(res.text);
-      expect(body.error).toBe("job not found");
+      expect(body.error).toBe("Job not found");
       expect(pool.query).toHaveBeenCalledTimes(1);
     });
   
@@ -202,7 +202,81 @@ describe("POST /api/jobs/:id/applications", () => {
   });
 });
 
-describe("GET /api/jobs/:id/applications", () => {});
+describe("GET /api/jobs/:id/applications", () => {
+  const jobId = 1;
+  const applicationsData = [
+    { id: 1, applicant_name: 'John Doe', applicant_email: 'john.doe@example.com', resume_id: 123, job_id: jobId },
+    { id: 2, applicant_name: 'Jane Doe', applicant_email: 'jane.doe@example.com', resume_id: 456, job_id: jobId },
+  ];
+
+  it("should get all applications for a job", async () => {
+    // Mock job exists check
+    pool.query.mockResolvedValueOnce({ rows: [{ id: jobId }], rowCount: 1 });
+    // Mock get applications
+    pool.query.mockResolvedValueOnce({ rows: applicationsData, rowCount: applicationsData.length });
+
+    const res = await request(app).get(`/api/jobs/${jobId}/applications`);
+
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.text);
+    expect(body.message).toBe(`Retrived applications for job ${jobId}`);
+    expect(body.data).toEqual(applicationsData);
+    expect(pool.query).toHaveBeenCalledTimes(2);
+  });
+
+  it("should return 400 if job id is not a number", async () => {
+    const res = await request(app).get(`/api/jobs/abc/applications`);
+
+    expect(res.statusCode).toBe(400);
+    const body = JSON.parse(res.text);
+    expect(body.error).toBe("Invalid job ID");
+    expect(pool.query).not.toHaveBeenCalled();
+  });
+
+  it("should return 400 if job id is not an integer", async () => {
+    const res = await request(app).get(`/api/jobs/1.23/applications`);
+
+    expect(res.statusCode).toBe(400);
+    const body = JSON.parse(res.text);
+    expect(body.error).toBe("Invalid job ID");
+    expect(pool.query).not.toHaveBeenCalled();
+  });
+
+  it("should return 404 if job is not found", async () => {
+    // Mock job exists check to return nothing
+    pool.query.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+
+    const res = await request(app).get(`/api/jobs/999/applications`);
+
+    expect(res.statusCode).toBe(404);
+    const body = JSON.parse(res.text);
+    expect(body.error).toBe("Job not found");
+    expect(pool.query).toHaveBeenCalledTimes(1);
+  });
+
+  it("should return 500 if job query fails", async () => {
+    pool.query.mockRejectedValue(new Error("DB error"));
+
+    const res = await request(app).get(`/api/jobs/${jobId}/applications`);
+
+    expect(res.statusCode).toBe(500);
+    const body = JSON.parse(res.text);
+    expect(body.error).toBe("Internal server error");
+  });
+
+  it("should return 500 if applications query fails", async () => {
+    // Mock job exists check
+    pool.query.mockResolvedValueOnce({ rows: [{ id: jobId }], rowCount: 1 });
+    // Mock applications query to fail
+    pool.query.mockRejectedValue(new Error("DB error"));
+
+    const res = await request(app).get(`/api/jobs/${jobId}/applications`);
+
+    expect(res.statusCode).toBe(500);
+    const body = JSON.parse(res.text);
+    expect(body.error).toBe("Internal server error");
+  });
+});
 
 describe("GET /api/aplications/:id", () => {});
 

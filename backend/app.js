@@ -267,7 +267,7 @@ app.post("/api/jobs/:id/applications", async (req, res) => {
     ]);
     if (jobExists.rowCount === 0) {
       console.log("Job not found");
-      return res.status(404).json({ error: "job not found" });
+      return res.status(404).json({ error: "Job not found" });
     }
     if (!req.body) {
       console.log("Missing body");
@@ -332,9 +332,16 @@ app.get("/api/jobs/:id/applications", async (req, res) => {
   console.log("Received GET request /api/jobs/:id/applications");
   try {
     const jobId = parseInt(req.params.id);
-    if (isNaN(jobId)) {
+    if (isNaN(jobId) || !Number.isInteger(parseFloat(req.params.id))) {
       console.log("Invalid job ID");
       return res.status(400).json({ error: "Invalid job ID" });
+    }
+    const jobExists = await queryWithRetry("SELECT 1 FROM jobs WHERE id = $1", [
+      jobId,
+    ]);
+    if (jobExists.rowCount === 0) {
+      console.log("Job not found");
+      return res.status(404).json({ error: "Job not found" });
     }
     const query = `
       SELECT * FROM applications
