@@ -94,4 +94,4 @@ async function deleteResume(objectKey, retries = 3, delay = 1000) {
   }
 }
 
-export { uploadResume, downloadResume, deleteResume };
+export { uploadResume, downloadResume, deleteResume, client };
