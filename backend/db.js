@@ -38,3 +38,4 @@ async function queryWithRetry(query, params = [], retries = 3, delay = 1000) {
 }
 
 export default queryWithRetry;
+export { pool };
