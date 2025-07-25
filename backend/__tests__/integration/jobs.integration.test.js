@@ -8,8 +8,8 @@ beforeAll(async () => {
 });
 
 // close DB pool
-afterAll(() => {
-  pool.end();
+afterAll( async () => {
+  await pool.end();
 });
 
 it("should complete the full lifecycle of a job", async () => {
