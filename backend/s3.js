@@ -15,7 +15,7 @@ dotenv.config();
 let client;
 
 if (process.env.NODE_ENV === "test") {
-  console.log("using test credentials");
+  console.log("S3CLIENT: using test credentials");
   // Use credentials with broader permissions for testing
   client = new S3Client({
     region: process.env.S3_REGION,
@@ -26,7 +26,7 @@ if (process.env.NODE_ENV === "test") {
   });
 } else {
   // Use more restricted credentials for development/production
-  console.log("using restricted credentials");
+  console.log("S3CLIENT: using test credentials");
   client = new S3Client({
     region: process.env.S3_REGION,
     credentials: {

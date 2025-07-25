@@ -4,12 +4,14 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
-    "test": "jest",
-    "test:coverage": "jest --coverage",
-    "test:unit": "jest -- __tests__/unit",
-    "test:api": "jest -- __tests__/api",
-    "test:integration": "jest -- __tests__/integration",
-    "test:e2e": "jest -- __tests__/e2e"
+    "start": "node server.js",
+    "dev": "cross-env NODE_ENV=development nodemon server.js",
+    "test": "cross-env NODE_ENV=test jest",
+    "test:coverage": "cross-env NODE_ENV=test jest --coverage",
+    "test:unit": "cross-env NODE_ENV=test jest -- __tests__/unit",
+    "test:api": "cross-env NODE_ENV=test jest -- __tests__/api",
+    "test:integration": "cross-env NODE_ENV=test jest -- __tests__/integration",
+    "test:e2e": "cross-env NODE_ENV=test jest -- __tests__/e2e"
   },
   "keywords": [],
   "author": "",
@@ -27,7 +29,9 @@
     "@babel/core": "^7.28.0",
     "@babel/preset-env": "^7.28.0",
     "babel-jest": "^30.0.4",
+    "cross-env": "^10.0.0",
     "jest": "^30.0.4",
+    "nodemon": "^3.1.10",
     "supertest": "^7.1.3"
   }
 }
