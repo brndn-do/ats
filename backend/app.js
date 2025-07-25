@@ -45,11 +45,6 @@ app.post("/api/resumes", upload.single("resume"), async (req, res) => {
     `;
     const params = [req.file.originalname, s3Result.objectKey];
     const dbResult = await queryWithRetry(query, params);
-    if (dbResult.rowCount !== 1) {
-      console.log("Failed to insert resume");
-      await deleteResume(s3Result.objectKey);
-      return res.status(500).json({ error: "Internal server error" });
-    }
     console.log("Resume posted");
     return res
       .status(201)
@@ -83,7 +78,7 @@ app.get("/api/resumes/:id", async (req, res) => {
     // download from S3
     const objectKey = dbResult.rows[0].object_key;
     const s3Result = await downloadResume(objectKey);
-    res.setHeader("Content-Type", s3Result.ContentType || "application/pdf");
+    res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
       `inline; filename="${dbResult.rows[0].original_filename}"`
@@ -127,11 +122,7 @@ app.delete("/api/resumes/:id", async (req, res) => {
       WHERE id = $1
       RETURNING *
     `;
-    const dbDelete = await queryWithRetry(deleteQuery, params);
-    if (dbDelete.rowCount === 0) {
-      console.log("Error deleting resume");
-      return res.status(500).json({ error: "Internal server error" });
-    }
+    await queryWithRetry(deleteQuery, params);
     console.log("Deleted resume from DB");
     console.log("Resume deleted");
     return res.status(204).send();
@@ -170,10 +161,6 @@ app.post("/api/jobs", async (req, res) => {
     `;
     const params = [body.title, body.description, body.adminId];
     const result = await queryWithRetry(query, params);
-    if (result.rowCount !== 1) {
-      console.log("Failed to insert job");
-      return res.status(500).json({ error: "Internal server error" });
-    }
     console.log("Job posted");
     return res
       .status(201)
@@ -313,10 +300,6 @@ app.post("/api/jobs/:id/applications", async (req, res) => {
       jobId,
     ];
     const result = await queryWithRetry(query, params);
-    if (result.rowCount !== 1) {
-      console.log("Failed to insert application");
-      return res.status(500).json({ error: "Internal server error" });
-    }
     console.log("Application posted");
     return res
       .status(201)
