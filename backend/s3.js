@@ -1,31 +1,76 @@
 // s3.js
 
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
-import { v4 as uuidv4 } from 'uuid';
-import dotenv from 'dotenv';
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+  ListObjectsV2Command,
+  DeleteObjectsCommand,
+} from "@aws-sdk/client-s3";
+import { v4 as uuidv4 } from "uuid";
+import dotenv from "dotenv";
 dotenv.config();
 
-const client = new S3Client({
-  region: process.env.S3_REGION,
-  credentials: {
-    accessKeyId: process.env.S3_ACCESS_KEY,
-    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY
+let client;
+
+if (process.env.NODE_ENV === "test") {
+  console.log("using test credentials");
+  // Use credentials with broader permissions for testing
+  client = new S3Client({
+    region: process.env.S3_REGION,
+    credentials: {
+      accessKeyId: process.env.TEST_S3_ACCESS_KEY,
+      secretAccessKey: process.env.TEST_S3_SECRET_ACCESS_KEY,
+    },
+  });
+} else {
+  // Use more restricted credentials for development/production
+  console.log("using restricted credentials");
+  client = new S3Client({
+    region: process.env.S3_REGION,
+    credentials: {
+      accessKeyId: process.env.S3_ACCESS_KEY,
+      secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
+    },
+  });
+}
+
+async function emptyBucket() {
+  if (process.env.NODE_ENV !== "test")
+    throw new Error("Cannot empty bucket outside of testing");
+  // 1. List all objects in the bucket
+  const listParams = { Bucket: process.env.S3_BUCKET_NAME }
+  const listedObjects = await client.send(new ListObjectsV2Command(listParams));
+  if (!listedObjects.Contents || listedObjects.Contents.length === 0) {
+    console.log("Bucket is already empty!");
+    return;
   }
-});
+  // 2. Prepare the list of keys to delete
+  const deleteParams = {
+    Bucket: process.env.S3_BUCKET_NAME,
+    Delete: {
+      Objects: listedObjects.Contents.map(({ Key }) => ({ Key })),
+    },
+  };
+  // 3. Delete the objects
+  await client.send(new DeleteObjectsCommand(deleteParams));
+  console.log("Emptied Bucket!");
+}
 
 // Given a PDF buffer, uploads the PDF to S3 bucket, generating a unique object key
 // Input: PDF buffer, optional retry count, optional delay
 // Returns an object containing the generated uuid object key
 async function uploadResume(buffer, retries = 3, delay = 1000) {
   const id = uuidv4();
-  const objectKey = `${id}.pdf`
+  const objectKey = `${id}.pdf`;
   const params = {
     Bucket: process.env.S3_BUCKET_NAME,
     Key: objectKey,
     Body: buffer,
-    ContentType: 'application/pdf',
-    ContentDisposition: 'inline',
-    ACL: 'private'
+    ContentType: "application/pdf",
+    ContentDisposition: "inline",
+    ACL: "private",
   };
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
@@ -42,7 +87,7 @@ async function uploadResume(buffer, retries = 3, delay = 1000) {
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
-};
+}
 
 // Given an S3 object key, gets the file stream from S3
 // Input: object key, optional retry count, optional delay
@@ -50,7 +95,7 @@ async function uploadResume(buffer, retries = 3, delay = 1000) {
 async function downloadResume(objectKey, retries = 3, delay = 1000) {
   const params = {
     Bucket: process.env.S3_BUCKET_NAME,
-    Key: objectKey
+    Key: objectKey,
   };
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
@@ -75,7 +120,7 @@ async function downloadResume(objectKey, retries = 3, delay = 1000) {
 async function deleteResume(objectKey, retries = 3, delay = 1000) {
   const params = {
     Bucket: process.env.S3_BUCKET_NAME,
-    Key: objectKey
+    Key: objectKey,
   };
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
@@ -94,4 +139,4 @@ async function deleteResume(objectKey, retries = 3, delay = 1000) {
   }
 }
 
-export { uploadResume, downloadResume, deleteResume, client };
+export { uploadResume, downloadResume, deleteResume, client, emptyBucket };
