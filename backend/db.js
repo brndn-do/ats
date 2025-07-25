@@ -1,9 +1,9 @@
 // db.js
 
-import dotenv from 'dotenv';
+import dotenv from "dotenv";
 dotenv.config();
 
-import pkg from 'pg';
+import pkg from "pg";
 const { Pool } = pkg;
 
 const pool = new Pool({
@@ -13,8 +13,8 @@ const pool = new Pool({
   password: process.env.DB_PASSWORD,
   port: process.env.DB_PORT,
   ssl: {
-    rejectUnauthorized: false
-  }
+    rejectUnauthorized: false,
+  },
 });
 
 // Given a SQL query and parameters, executes the query with retries

@@ -8,7 +8,7 @@ beforeAll(async () => {
 });
 
 // close DB pool
-afterAll( async () => {
+afterAll(async () => {
   await pool.end();
 });
 

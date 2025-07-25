@@ -11,7 +11,7 @@ async function gracefulShutdown() {
   console.log("Received kill signal, shutting down gracefully.");
 
   // Stop accepting new connections
-  server.close(async err => {
+  server.close(async (err) => {
     if (err) {
       console.error("Error closing HTTP server:", err);
       process.exit(1);

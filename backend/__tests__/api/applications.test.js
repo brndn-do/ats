@@ -121,17 +121,17 @@ describe("POST /api/jobs/:id/applications", () => {
         rows: [{ id: 1, ...applicationData, job_id: jobId }],
         rowCount: 1,
       });
-  
+
       const res = await request(app)
         .post(`/api/jobs/999/applications`)
         .send(applicationData);
-  
+
       expect(res.statusCode).toBe(404);
       const body = JSON.parse(res.text);
       expect(body.error).toBe("Job not found");
       expect(pool.query).toHaveBeenCalledTimes(1);
     });
-  
+
     it("should return 404 if resume not found", async () => {
       // Mock job exists check
       pool.query.mockResolvedValueOnce({ rows: [{ id: jobId }], rowCount: 1 });
@@ -142,17 +142,17 @@ describe("POST /api/jobs/:id/applications", () => {
         rows: [{ id: 1, ...applicationData, job_id: jobId }],
         rowCount: 1,
       });
-  
+
       const res = await request(app)
         .post(`/api/jobs/${jobId}/applications`)
         .send(applicationData);
-  
+
       expect(res.statusCode).toBe(404);
       const body = JSON.parse(res.text);
       expect(body.error).toBe("Resume not found ");
       expect(pool.query).toHaveBeenCalledTimes(2);
     });
-  })
+  });
 
   it("should return 500 if first db query fails (job check)", async () => {
     pool.query.mockRejectedValue(new Error("DB error"));
@@ -205,15 +205,30 @@ describe("POST /api/jobs/:id/applications", () => {
 describe("GET /api/jobs/:id/applications", () => {
   const jobId = 1;
   const applicationsData = [
-    { id: 1, applicant_name: 'John Doe', applicant_email: 'john.doe@example.com', resume_id: 123, job_id: jobId },
-    { id: 2, applicant_name: 'Jane Doe', applicant_email: 'jane.doe@example.com', resume_id: 456, job_id: jobId },
+    {
+      id: 1,
+      applicant_name: "John Doe",
+      applicant_email: "john.doe@example.com",
+      resume_id: 123,
+      job_id: jobId,
+    },
+    {
+      id: 2,
+      applicant_name: "Jane Doe",
+      applicant_email: "jane.doe@example.com",
+      resume_id: 456,
+      job_id: jobId,
+    },
   ];
 
   it("should get all applications for a job", async () => {
     // Mock job exists check
     pool.query.mockResolvedValueOnce({ rows: [{ id: jobId }], rowCount: 1 });
     // Mock get applications
-    pool.query.mockResolvedValueOnce({ rows: applicationsData, rowCount: applicationsData.length });
+    pool.query.mockResolvedValueOnce({
+      rows: applicationsData,
+      rowCount: applicationsData.length,
+    });
 
     const res = await request(app).get(`/api/jobs/${jobId}/applications`);
 
@@ -280,7 +295,13 @@ describe("GET /api/jobs/:id/applications", () => {
 
 describe("GET /api/applications/:id", () => {
   const applicationId = 1;
-  const applicationData = { id: applicationId, applicant_name: 'John Doe', applicant_email: 'john.doe@example.com', resume_id: 123, job_id: 1 };
+  const applicationData = {
+    id: applicationId,
+    applicant_name: "John Doe",
+    applicant_email: "john.doe@example.com",
+    resume_id: 123,
+    job_id: 1,
+  };
 
   it("should get an application by its id", async () => {
     pool.query.mockResolvedValueOnce({ rows: [applicationData], rowCount: 1 });
@@ -338,7 +359,10 @@ describe("DELETE /api/applications/:id", () => {
   const applicationId = 1;
 
   it("should delete an application and return 204", async () => {
-    pool.query.mockResolvedValueOnce({ rows: [{ id: applicationId }], rowCount: 1 });
+    pool.query.mockResolvedValueOnce({
+      rows: [{ id: applicationId }],
+      rowCount: 1,
+    });
 
     const res = await request(app).delete(`/api/applications/${applicationId}`);
 

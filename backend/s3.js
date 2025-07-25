@@ -44,7 +44,9 @@ async function emptyBucket(retries = 3, delay = 1000) {
   for (let i = 0; i < retries; i++) {
     try {
       const listParams = { Bucket: process.env.S3_BUCKET_NAME };
-      const listedObjects = await client.send(new ListObjectsV2Command(listParams));
+      const listedObjects = await client.send(
+        new ListObjectsV2Command(listParams)
+      );
 
       if (!listedObjects.Contents || listedObjects.Contents.length === 0) {
         console.log("Bucket is already empty!");
