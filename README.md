@@ -12,8 +12,8 @@ This project is currently focused on the backend API. The front-end is not yet s
 | :---------- | :-------------------------------------------- |
 | `✓ Done`    | Core API for managing jobs and applications.  |
 | `✓ Done`    | PDF résumé uploads to and downloads from S3.  |
-| `~ In Prog` | Comprehensive testing suite.                  |
-| `- To Do`   | User authentication and authorization (JWT).  |
+| `✓ Done`    | Comprehensive testing suite.                  |
+| `~ In Prog` | User authentication and authorization (JWT).  |
 | `- To Do`   | Automated résumé parsing and keyword matching.|
 | `- To Do`   | Front-end React UI.                           |
 | `- To Do`   | Containerization and deployment.              |
