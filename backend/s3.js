@@ -26,7 +26,7 @@ if (process.env.NODE_ENV === "test") {
   });
 } else {
   // Use more restricted credentials for development/production
-  console.log("S3CLIENT: using test credentials");
+  console.log("S3CLIENT: using restricted credentials");
   client = new S3Client({
     region: process.env.S3_REGION,
     credentials: {
