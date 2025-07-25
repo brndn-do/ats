@@ -36,26 +36,39 @@ if (process.env.NODE_ENV === "test") {
   });
 }
 
-async function emptyBucket() {
-  if (process.env.NODE_ENV !== "test")
+async function emptyBucket(retries = 3, delay = 1000) {
+  if (process.env.NODE_ENV !== "test") {
     throw new Error("Cannot empty bucket outside of testing");
-  // 1. List all objects in the bucket
-  const listParams = { Bucket: process.env.S3_BUCKET_NAME }
-  const listedObjects = await client.send(new ListObjectsV2Command(listParams));
-  if (!listedObjects.Contents || listedObjects.Contents.length === 0) {
-    console.log("Bucket is already empty!");
-    return;
   }
-  // 2. Prepare the list of keys to delete
-  const deleteParams = {
-    Bucket: process.env.S3_BUCKET_NAME,
-    Delete: {
-      Objects: listedObjects.Contents.map(({ Key }) => ({ Key })),
-    },
-  };
-  // 3. Delete the objects
-  await client.send(new DeleteObjectsCommand(deleteParams));
-  console.log("Emptied Bucket!");
+
+  for (let i = 0; i < retries; i++) {
+    try {
+      const listParams = { Bucket: process.env.S3_BUCKET_NAME };
+      const listedObjects = await client.send(new ListObjectsV2Command(listParams));
+
+      if (!listedObjects.Contents || listedObjects.Contents.length === 0) {
+        console.log("Bucket is already empty!");
+        return;
+      }
+
+      const deleteParams = {
+        Bucket: process.env.S3_BUCKET_NAME,
+        Delete: {
+          Objects: listedObjects.Contents.map(({ Key }) => ({ Key })),
+        },
+      };
+
+      await client.send(new DeleteObjectsCommand(deleteParams));
+      console.log("Emptied Bucket!");
+      return;
+    } catch (error) {
+      if (i < retries - 1) {
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      } else {
+        throw error;
+      }
+    }
+  }
 }
 
 // Given a PDF buffer, uploads the PDF to S3 bucket, generating a unique object key

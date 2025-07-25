@@ -2,8 +2,15 @@ import {
   PutObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,
+  ListObjectsV2Command,
+  DeleteObjectsCommand,
 } from "@aws-sdk/client-s3";
-import { uploadResume, downloadResume, deleteResume } from "../../s3.js";
+import {
+  uploadResume,
+  downloadResume,
+  deleteResume,
+  emptyBucket,
+} from "../../s3.js";
 
 // Mocks the S3 client. The `send` method is a mock function, preventing
 // actual AWS calls. This allows tests to simulate S3 operations.
@@ -19,6 +26,8 @@ jest.mock("@aws-sdk/client-s3", () => {
     PutObjectCommand: jest.fn(),
     GetObjectCommand: jest.fn(),
     DeleteObjectCommand: jest.fn(),
+    ListObjectsV2Command: jest.fn(),
+    DeleteObjectsCommand: jest.fn(),
   };
 });
 
@@ -30,6 +39,8 @@ beforeEach(() => {
   PutObjectCommand.mockClear();
   GetObjectCommand.mockClear();
   DeleteObjectCommand.mockClear();
+  ListObjectsV2Command.mockClear();
+  DeleteObjectsCommand.mockClear();
 });
 
 describe("uploadResume", () => {
@@ -126,5 +137,65 @@ describe("deleteResume", () => {
         Key: objectKey,
       })
     );
+  });
+});
+
+describe("emptyBucket", () => {
+  const listedObjects = {
+    Contents: [{ Key: "file1.pdf" }, { Key: "file2.pdf" }],
+  };
+
+  it("should throw an error if NODE_ENV is not 'test'", async () => {
+    const originalEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = "development";
+    await expect(emptyBucket()).rejects.toThrow(
+      "Cannot empty bucket outside of testing"
+    );
+    process.env.NODE_ENV = originalEnv;
+  });
+
+  it("should do nothing if bucket is already empty", async () => {
+    S3Client.mSend.mockResolvedValue({ Contents: [] });
+    await emptyBucket();
+    expect(ListObjectsV2Command).toHaveBeenCalledTimes(1);
+    expect(DeleteObjectsCommand).not.toHaveBeenCalled();
+  });
+
+  it("should delete all objects if bucket is not empty", async () => {
+    S3Client.mSend
+      .mockResolvedValueOnce(listedObjects)
+      .mockResolvedValueOnce({});
+
+    await emptyBucket();
+
+    expect(ListObjectsV2Command).toHaveBeenCalledTimes(1);
+    expect(DeleteObjectsCommand).toHaveBeenCalledTimes(1);
+    expect(DeleteObjectsCommand).toHaveBeenCalledWith({
+      Bucket: process.env.S3_BUCKET_NAME,
+      Delete: {
+        Objects: [{ Key: "file1.pdf" }, { Key: "file2.pdf" }],
+      },
+    });
+  });
+
+  it("should succeed after one retry", async () => {
+    S3Client.mSend
+      .mockRejectedValueOnce(new Error(errMsg))
+      .mockResolvedValueOnce(listedObjects)
+      .mockResolvedValueOnce({});
+
+    await emptyBucket();
+
+    expect(ListObjectsV2Command).toHaveBeenCalledTimes(2);
+    expect(DeleteObjectsCommand).toHaveBeenCalledTimes(1);
+  });
+
+  it("should throw an error after all retries fail", async () => {
+    S3Client.mSend.mockRejectedValue(new Error(errMsg));
+
+    await expect(emptyBucket()).rejects.toThrow(errMsg);
+
+    expect(ListObjectsV2Command).toHaveBeenCalledTimes(3);
+    expect(DeleteObjectsCommand).not.toHaveBeenCalled();
   });
 });
