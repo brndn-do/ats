@@ -4,21 +4,44 @@ import express from "express";
 import multer from "multer";
 import queryWithRetry from "./db.js";
 import { uploadResume, downloadResume, deleteResume } from "./s3.js";
+import jwt from "jsonwebtoken";
 
 const app = express();
 app.use(express.json());
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-//
-//
-// TODO: add authentication to routes requiring admin authentication
-//
-
 // GET /
 app.get("/", (req, res) => {
   console.log("Received GET request /");
   res.json({ status: "ok", message: "ATS API" });
+});
+
+// POST /api/auth/login
+app.post("/api/auth/login", async (req, res) => {
+  console.log("Received POST request /api/auth/login");
+  const body = req.body;
+  const username = body.username;
+  const password = body.password;
+
+  const query = `
+    SELECT (id, username, pwd_hash, is_admin)
+    FROM users
+    WHERE username = $1
+  `;
+  const params = [username];
+
+  const result = await queryWithRetry(query, params);
+  const row = result.rows[0];
+
+  const payload = {
+    sub: row.id,
+    name: row.username,
+    isAdmin: row.is_admin,
+  };
+
+  const token = jwt.sign(payload, process.env.JWT_SECRET);
+  return res.json({ message: "Logged in", data: token });
 });
 
 // POST /api/resumes
