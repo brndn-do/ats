@@ -51,7 +51,13 @@ describe("POST /api/auth/login", () => {
     const payload = jwt.verify(res.body.data, process.env.JWT_SECRET);
     expect(payload).toMatchObject(expectedPayload);
   });
-  it("should return 400 if body is missing", async () => {});
+  it("should return 400 if body is missing", async () => {
+    pool.query.mockResolvedValueOnce(mockResolvedValue);
+    const res = await request(app).post("/api/auth/login");
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("Missing body");
+    expect(pool.query).not.toHaveBeenCalled();
+  });
   describe("missing required fields", () => {
     it("should return 400 if missing username", async () => {});
     it("should return 400 if missing password", async () => {});

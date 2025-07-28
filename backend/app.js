@@ -20,6 +20,7 @@ app.get("/", (req, res) => {
 // POST /api/auth/login
 app.post("/api/auth/login", async (req, res) => {
   console.log("Received POST request /api/auth/login");
+  if (!req.body) return res.status(400).json({ error: "Missing body" });
   const body = req.body;
   const username = body.username;
   const password = body.password;
