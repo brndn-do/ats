@@ -3,6 +3,7 @@ import app from "../../app.js";
 import { Pool } from "pg";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
+import crypto from "crypto";
 
 import dotenv from "dotenv";
 
@@ -44,13 +45,41 @@ const expectedPayload = {
 };
 
 describe("POST /api/auth/login", () => {
-  it("should issue correct access token", async () => {
+  it("should return a correct access token", async () => {
     pool.query.mockResolvedValueOnce(mockResolvedValue);
     const res = await request(app).post("/api/auth/login").send(cred);
     expect(res.status).toBe(200);
     expect(res.body.message).toBe("Logged in");
-    const payload = jwt.verify(res.body.data, process.env.JWT_SECRET);
+    const accessToken = res.body.data.accessToken;
+    const payload = jwt.verify(accessToken, process.env.JWT_SECRET);
     expect(payload).toMatchObject(expectedPayload);
+    expect(payload.exp - payload.iat).toBeLessThanOrEqual(300);
+  });
+  it("should return a refresh token", async () => {
+    const spy = jest.spyOn(crypto, "randomBytes");
+    pool.query.mockResolvedValueOnce(mockResolvedValue);
+    const res = await request(app).post("/api/auth/login").send(cred);
+    expect(res.status).toBe(200);
+    expect(res.body.message).toBe("Logged in");
+    const refreshToken = res.body.data.refreshToken;
+    expect(spy).toHaveBeenCalled();
+    expect(refreshToken).toEqual(expect.any(String));
+    spy.mockRestore();
+  });
+  it("should save refresh token to db", async () => {
+    pool.query.mockResolvedValueOnce(mockResolvedValue); // SELECT
+    pool.query.mockResolvedValueOnce({ rows: [], rowCount: 1 }); // INSERT
+    const res = await request(app).post("/api/auth/login").send(cred);
+    expect(res.status).toBe(200);
+    expect(res.body.message).toBe("Logged in");
+    expect(pool.query).toHaveBeenCalledWith(
+      expect.stringMatching(/INSERT INTO refresh_tokens/i),
+      [
+        expect.any(Number), // user_id
+        expect.any(String), // token_hash
+        expect.any(Date), // expires_at
+      ]
+    );
   });
   it("should return 400 if body is missing", async () => {
     pool.query.mockResolvedValueOnce(mockResolvedValue);

@@ -6,6 +6,7 @@ import queryWithRetry from "./db.js";
 import { uploadResume, downloadResume, deleteResume } from "./s3.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
+import crypto from "crypto";
 
 const app = express();
 app.use(express.json());
@@ -30,18 +31,18 @@ app.post("/api/auth/login", async (req, res, next) => {
     return res.status(422).json({ error: "Incorrect data type(s) in body" });
 
   try {
-    const query = `
+    const selectQuery = `
       SELECT (id, username, pwd_hash, is_admin)
       FROM users
       WHERE username = $1
     `;
-    const params = [username];
-    const result = await queryWithRetry(query, params);
+    const selectParams = [username];
+    const selectResult = await queryWithRetry(selectQuery, selectParams);
 
-    if (result.rowCount === 0)
+    if (selectResult.rowCount === 0)
       return res.status(401).json({ error: "Invalid credentials" });
 
-    const row = result.rows[0];
+    const row = selectResult.rows[0];
 
     if (!(await bcrypt.compare(password, row.pwd_hash)))
       return res.status(401).json({ error: "Invalid credentials" });
@@ -52,8 +53,34 @@ app.post("/api/auth/login", async (req, res, next) => {
       isAdmin: row.is_admin,
     };
 
-    const token = jwt.sign(payload, process.env.JWT_SECRET);
-    return res.json({ message: "Logged in", data: token });
+    const accessToken = jwt.sign(payload, process.env.JWT_SECRET, {
+      expiresIn: "5m",
+    });
+    const refreshToken = crypto.randomBytes(40).toString("hex");
+    const refreshTokenHash = crypto
+      .createHash("sha256")
+      .update(refreshToken)
+      .digest("hex");
+
+    // insert refresh token into db
+    const insertQuery = `
+      INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
+      VALUES ($1, $2, $3)
+    `;
+    const insertParams = [
+      row.id,
+      refreshTokenHash,
+      new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+    ]; 
+    await queryWithRetry(insertQuery, insertParams);
+
+    return res.json({
+      message: "Logged in",
+      data: {
+        accessToken,
+        refreshToken,
+      },
+    });
   } catch (err) {
     next(err);
   }
