@@ -5,6 +5,7 @@ import multer from "multer";
 import queryWithRetry from "./db.js";
 import { uploadResume, downloadResume, deleteResume } from "./s3.js";
 import jwt from "jsonwebtoken";
+import bcrypt from "bcrypt";
 
 const app = express();
 app.use(express.json());
@@ -21,28 +22,41 @@ app.get("/", (req, res) => {
 app.post("/api/auth/login", async (req, res) => {
   console.log("Received POST request /api/auth/login");
   if (!req.body) return res.status(400).json({ error: "Missing body" });
-  const body = req.body;
-  const username = body.username;
-  const password = body.password;
+  if (!req.body.username || !req.body.password)
+    return res.status(400).json({ error: "Missing required fields" });
+  const username = req.body.username;
+  const password = req.body.password;
+  if (typeof username !== "string" || typeof password !== "string")
+    return res.status(422).json({ error: "Incorrect data type(s) in body" });
 
-  const query = `
-    SELECT (id, username, pwd_hash, is_admin)
-    FROM users
-    WHERE username = $1
-  `;
-  const params = [username];
+  try {
+    const query = `
+      SELECT (id, username, pwd_hash, is_admin)
+      FROM users
+      WHERE username = $1
+    `;
+    const params = [username];
+    const result = await queryWithRetry(query, params);
 
-  const result = await queryWithRetry(query, params);
-  const row = result.rows[0];
+    if (result.rowCount === 0)
+      return res.status(401).json({ error: "Invalid credentials" });
 
-  const payload = {
-    sub: row.id,
-    name: row.username,
-    isAdmin: row.is_admin,
-  };
+    const row = result.rows[0];
 
-  const token = jwt.sign(payload, process.env.JWT_SECRET);
-  return res.json({ message: "Logged in", data: token });
+    if (!(await bcrypt.compare(password, row.pwd_hash)))
+      return res.status(401).json({ error: "Invalid credentials" });
+
+    const payload = {
+      sub: row.id,
+      name: row.username,
+      isAdmin: row.is_admin,
+    };
+
+    const token = jwt.sign(payload, process.env.JWT_SECRET);
+    return res.json({ message: "Logged in", data: token });
+  } catch (err) {
+    return res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 // POST /api/resumes

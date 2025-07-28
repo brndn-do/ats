@@ -2,6 +2,7 @@ import request from "supertest";
 import app from "../../app.js";
 import { Pool } from "pg";
 import jwt from "jsonwebtoken";
+import bcrypt from "bcrypt";
 
 import dotenv from "dotenv";
 
@@ -24,22 +25,22 @@ const cred = {
   password: "abc123",
 };
 
-const expectedPayload = {
-  sub: 1,
-  name: "admin",
-  isAdmin: true,
-};
-
 const mockResolvedValue = {
   rows: [
     {
       id: 1,
       username: "admin",
-      pwd_hash: "abc123",
+      pwd_hash: bcrypt.hashSync(cred.password, 12), // hashed "abc123"
       is_admin: true,
     },
   ],
   rowCount: 1,
+};
+
+const expectedPayload = {
+  sub: 1,
+  name: "admin",
+  isAdmin: true,
 };
 
 describe("POST /api/auth/login", () => {
@@ -59,16 +60,69 @@ describe("POST /api/auth/login", () => {
     expect(pool.query).not.toHaveBeenCalled();
   });
   describe("missing required fields", () => {
-    it("should return 400 if missing username", async () => {});
-    it("should return 400 if missing password", async () => {});
+    it("should return 400 if missing username", async () => {
+      const badCred = { password: "abc123" };
+      pool.query.mockResolvedValueOnce(mockResolvedValue);
+      const res = await request(app).post("/api/auth/login").send(badCred);
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe("Missing required fields");
+      expect(pool.query).not.toHaveBeenCalled();
+    });
+    it("should return 400 if missing password", async () => {
+      const badCred = { username: "admin" };
+      pool.query.mockResolvedValueOnce(mockResolvedValue);
+      const res = await request(app).post("/api/auth/login").send(badCred);
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe("Missing required fields");
+      expect(pool.query).not.toHaveBeenCalled();
+    });
   });
   describe("incorrect data type(s) in body", () => {
-    it("should return 422 if username is not string", async () => {});
-    it("should return 422 if password is not string", async () => {});
+    it("should return 422 if username is not string", async () => {
+      const badCred = { username: 123, password: "abc123" };
+      pool.query.mockResolvedValueOnce(mockResolvedValue);
+      const res = await request(app).post("/api/auth/login").send(badCred);
+      expect(res.status).toBe(422);
+      expect(res.body.error).toBe("Incorrect data type(s) in body");
+      expect(pool.query).not.toHaveBeenCalled();
+    });
+    it("should return 422 if password is not string", async () => {
+      const badCred = { username: "admin", password: 123 };
+      pool.query.mockResolvedValueOnce(mockResolvedValue);
+      const res = await request(app).post("/api/auth/login").send(badCred);
+      expect(res.status).toBe(422);
+      expect(res.body.error).toBe("Incorrect data type(s) in body");
+      expect(pool.query).not.toHaveBeenCalled();
+    });
   });
-  it("should return 401 if user doesn't exist", async () => {});
-  it("should return 401 if password is incorrect", async () => {});
-  it("should return 500 if db failure", async () => {});
+  it("should return 401 if user doesn't exist", async () => {
+    pool.query.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+    const res = await request(app).post("/api/auth/login").send(cred);
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe("Invalid credentials");
+  });
+  it("should return 401 if password is incorrect", async () => {
+    pool.query.mockResolvedValueOnce({
+      rows: [
+        {
+          id: 1,
+          username: "admin",
+          pwd_hash: bcrypt.hashSync("def456", 12), // hashed "def456"
+          is_admin: true,
+        },
+      ],
+      rowCount: 1,
+    });
+    const res = await request(app).post("/api/auth/login").send(cred);
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe("Invalid credentials");
+  });
+  it("should return 500 if db failure", async () => {
+    pool.query.mockRejectedValue(new Error());
+    const res = await request(app).post("/api/auth/login").send(cred);
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe("Internal server error");
+  });
 });
 
 describe("POST /api/auth/logout", () => {});
