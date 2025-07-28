@@ -19,7 +19,7 @@ app.get("/", (req, res) => {
 });
 
 // POST /api/auth/login
-app.post("/api/auth/login", async (req, res) => {
+app.post("/api/auth/login", async (req, res, next) => {
   console.log("Received POST request /api/auth/login");
   if (!req.body) return res.status(400).json({ error: "Missing body" });
   if (!req.body.username || !req.body.password)
@@ -55,12 +55,12 @@ app.post("/api/auth/login", async (req, res) => {
     const token = jwt.sign(payload, process.env.JWT_SECRET);
     return res.json({ message: "Logged in", data: token });
   } catch (err) {
-    return res.status(500).json({ error: "Internal server error" });
+    next(err);
   }
 });
 
 // POST /api/resumes
-app.post("/api/resumes", upload.single("resume"), async (req, res) => {
+app.post("/api/resumes", upload.single("resume"), async (req, res, next) => {
   console.log("Received POST request /api/resumes");
   try {
     if (!req.file) {
@@ -433,6 +433,12 @@ app.delete("/api/applications/:id", async (req, res) => {
     console.error("Error deleting application:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
+});
+
+// Error handler middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ error: "Internal server error" });
 });
 
 export default app;
