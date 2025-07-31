@@ -86,7 +86,7 @@ app.post("/api/auth/login", async (req, res, next) => {
   }
 });
 
-// POST /api/auth/logout'
+// POST /api/auth/logout
 app.post("/api/auth/logout", async (req, res, next) => {
   console.log("Received POST request /api/auth/logout");
   if (!req.body) return res.status(400).json({ error: "Missing body" });
@@ -113,6 +113,78 @@ app.post("/api/auth/logout", async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+// POST /api/auth/refresh
+app.post("/api/auth/refresh", async (req, res, next) => {
+  console.log("Received POST request /api/auth/refresh");
+  const refreshToken = req.body.refreshToken;
+  const refreshTokenHash = crypto
+    .createHash("sha256")
+    .update(refreshToken)
+    .digest("hex");
+
+  // Look up refresh token in DB to get user ID
+  const refreshTokenQuery = `
+    SELECT user_id FROM refresh_tokens
+    WHERE refresh_token_hash = $1
+  `;
+  const refreshTokenParams = [refreshTokenHash];
+  const refreshTokenResult = await queryWithRetry(
+    refreshTokenQuery,
+    refreshTokenParams
+  );
+  const userId = refreshTokenResult.rows[0].user_id;
+
+  // Look up user in DB to get user info
+  const userQuery = `
+    SELECT (id, username, pwd_hash, is_admin)
+    FROM users
+    WHERE id = $1
+  `;
+  const userParams = [userId];
+  const userResult = await queryWithRetry(userQuery, userParams);
+  const row = userResult.rows[0];
+  const payload = {
+    sub: row.id,
+    name: row.username,
+    isAdmin: row.is_admin,
+  };
+
+  // Create access token
+  const accessToken = jwt.sign(payload, process.env.JWT_SECRET, {
+    expiresIn: "5m",
+  });
+
+  // Create new refresh token
+  const newRefreshToken = crypto.randomBytes(32).toString("hex"); // 256 bits of entropy
+  const newRefreshTokenHash = crypto
+    .createHash("sha256")
+    .update(newRefreshToken)
+    .digest("hex");
+
+  // update refresh token in DB
+  const updateQuery = `
+    UPDATE refresh_tokens
+    SET 
+      refresh_token_hash = $1
+      expires_at = $2
+    WHERE refresh_token_hash = $3
+  `;
+  const updateParams = [
+    newRefreshTokenHash, // new hash
+    new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+    refreshTokenHash, // old hash
+  ];
+  await queryWithRetry(updateQuery, updateParams);
+
+  return res.json({
+    message: "Refreshed token",
+    data: {
+      accessToken,
+      refreshToken: newRefreshToken,
+    },
+  });
 });
 
 // POST /api/resumes
