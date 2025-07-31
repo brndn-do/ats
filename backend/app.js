@@ -110,60 +110,78 @@ app.post("/api/auth/logout", async (req, res, next) => {
 // POST /api/auth/refresh
 app.post("/api/auth/refresh", async (req, res, next) => {
   console.log("Received POST request /api/auth/refresh");
+  if (!req.body) return res.status(400).json({ error: "Missing body" });
+  if (!req.body.refreshToken)
+    return res.status(400).json({ error: "Missing refresh token" });
+  if (typeof req.body.refreshToken !== "string")
+    return res.status(422).json({ error: "Invalid data type in body" });
   const refreshToken = req.body.refreshToken;
   const refreshTokenHash = hash(refreshToken);
 
-  // Look up refresh token in DB to get user ID
-  const refreshTokenQuery = `
-    SELECT user_id FROM refresh_tokens
+  try {
+    // Look up refresh token in DB to get user ID and expiration
+    const refreshTokenQuery = `
+    SELECT (user_id, expires_at)
+    FROM refresh_tokens
     WHERE refresh_token_hash = $1
-  `;
-  const refreshTokenParams = [refreshTokenHash];
-  const refreshTokenResult = await queryWithRetry(
-    refreshTokenQuery,
-    refreshTokenParams
-  );
-  const userId = refreshTokenResult.rows[0].user_id;
+    `;
+    const refreshTokenParams = [refreshTokenHash];
+    const refreshTokenResult = await queryWithRetry(
+      refreshTokenQuery,
+      refreshTokenParams
+    );
 
-  // Look up user in DB to get user info
-  const userQuery = `
+    // If no match or the token is expired:
+    if (
+      refreshTokenResult.rowCount === 0 ||
+      refreshTokenResult.rows[0].expires_at < new Date()
+    )
+      return res.status(401).json({ error: "Invalid refresh token" });
+
+    const userId = refreshTokenResult.rows[0].user_id;
+
+    // Look up user in DB to get user info
+    const userQuery = `
     SELECT (id, username, pwd_hash, is_admin)
     FROM users
     WHERE id = $1
-  `;
-  const userParams = [userId];
-  const userResult = await queryWithRetry(userQuery, userParams);
-  const row = userResult.rows[0];
+    `;
+    const userParams = [userId];
+    const userResult = await queryWithRetry(userQuery, userParams);
+    const row = userResult.rows[0];
 
-  // create access token, refresh token, and the refresh token hash
-  const {
-    accessToken,
-    refreshToken: newRefreshToken, // rename to newRefreshToken
-    refreshTokenHash: newRefreshTokenHash, // rename to newRefreshTokenHash
-  } = createTokens(row.id, row.username, row.is_admin);
+    // create access token, refresh token, and the refresh token hash
+    const {
+      accessToken,
+      refreshToken: newRefreshToken, // rename to newRefreshToken
+      refreshTokenHash: newRefreshTokenHash, // rename to newRefreshTokenHash
+    } = createTokens(row.id, row.username, row.is_admin);
 
-  // update refresh token in DB
-  const updateQuery = `
+    // update refresh token in DB
+    const updateQuery = `
     UPDATE refresh_tokens
     SET 
-      refresh_token_hash = $1
-      expires_at = $2
+    refresh_token_hash = $1
+    expires_at = $2
     WHERE refresh_token_hash = $3
-  `;
-  const updateParams = [
-    newRefreshTokenHash, // new hash
-    new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
-    refreshTokenHash, // old hash
-  ];
-  await queryWithRetry(updateQuery, updateParams);
+    `;
+    const updateParams = [
+      newRefreshTokenHash, // new hash
+      new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+      refreshTokenHash, // old hash
+    ];
+    await queryWithRetry(updateQuery, updateParams);
 
-  return res.json({
-    message: "Refreshed token",
-    data: {
-      accessToken,
-      refreshToken: newRefreshToken,
-    },
-  });
+    return res.json({
+      message: "Refreshed token",
+      data: {
+        accessToken,
+        refreshToken: newRefreshToken,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 // POST /api/resumes

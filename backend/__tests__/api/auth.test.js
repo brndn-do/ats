@@ -5,7 +5,7 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 
-import hash from "../../utils/hash.js"
+import hash from "../../utils/hash.js";
 import createTokens from "../../utils/createTokens.js";
 
 // Mocks the `pg` module. `new Pool()` will always return the same singleton
@@ -20,11 +20,13 @@ beforeEach(() => {
   pool.query.mockReset();
 });
 
+// example user's credentials for testing
 const cred = {
   username: "admin",
   password: "abc123",
 };
 
+// example user's info in the database
 const userQueryResult = {
   rows: [
     {
@@ -37,6 +39,7 @@ const userQueryResult = {
   rowCount: 1,
 };
 
+// the expected payload of the access token
 const expectedPayload = {
   sub: 1,
   name: "admin",
@@ -213,7 +216,7 @@ describe("POST /api/auth/logout", () => {
 });
 
 describe("POST /api/auth/refresh", () => {
- const { refreshToken, refreshTokenHash } = createTokens();
+  const { refreshToken, refreshTokenHash } = createTokens();
 
   it("should return a new correct access token", async () => {
     pool.query.mockResolvedValueOnce({ rows: [{}], rowCount: 1 }); // SELECT ... FROM refresh_tokens
@@ -257,10 +260,56 @@ describe("POST /api/auth/refresh", () => {
       [newRefreshTokenHash, expect.any(Date), refreshTokenHash]
     );
   });
-  it("should return 400 if body is missing", async () => {});
-  it("should return 400 if missing refresh token", async () => {});
-  it("should return 422 if refresh token is wrong data type", async () => {});
-  it("should return 401 if refresh token doesn't exist in database", async () => {});
-  it("should return 401 if refresh token is expired", async () => {});
-  it("should return 500 if db failure", async () => {});
+  it("should return 400 if body is missing", async () => {
+    const res = await request(app).post("/api/auth/refresh");
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("Missing body");
+    expect(pool.query).not.toHaveBeenCalled();
+  });
+  it("should return 400 if missing refresh token", async () => {
+    const res = await request(app).post("/api/auth/refresh").send({});
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("Missing refresh token");
+    expect(pool.query).not.toHaveBeenCalled();
+  });
+  it("should return 422 if refresh token is wrong data type", async () => {
+    const res = await request(app)
+      .post("/api/auth/refresh")
+      .send({ refreshToken: 123 });
+    expect(res.status).toBe(422);
+    expect(res.body.error).toBe("Invalid data type in body");
+    expect(pool.query).not.toHaveBeenCalled();
+  });
+  it("should return 401 if refresh token doesn't exist in database", async () => {
+    pool.query.mockResolvedValueOnce({ rows: [], rowCount: 0 }); // refreshTokenQuery
+    const res = await request(app)
+      .post("/api/auth/refresh")
+      .send({ refreshToken });
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe("Invalid refresh token");
+  });
+  it("should return 401 if refresh token is expired", async () => {
+    pool.query.mockResolvedValueOnce({
+      rows: [
+        {
+          user_id: 1,
+          expires_at: new Date(Date.now() - 1000), // expired a second ago
+        },
+      ],
+      rowCount: 1,
+    });
+    const res = await request(app)
+      .post("/api/auth/refresh")
+      .send({ refreshToken });
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe("Invalid refresh token");
+  });
+  it("should return 500 if db failure", async () => {
+    pool.query.mockRejectedValue(new Error());
+    const res = await request(app)
+      .post("/api/auth/refresh")
+      .send({ refreshToken });
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe("Internal server error");
+  });
 });
