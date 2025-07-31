@@ -1,4 +1,5 @@
-// app.js
+import dotenv from "dotenv";
+dotenv.config();
 
 import express from "express";
 import multer from "multer";
@@ -6,10 +7,7 @@ import queryWithRetry from "./db.js";
 import { uploadResume, downloadResume, deleteResume } from "./s3.js";
 import bcrypt from "bcrypt";
 import hash from "./utils/hash.js";
-
-import dotenv from "dotenv";
 import createTokens from "./utils/createTokens.js";
-dotenv.config();
 
 const app = express();
 app.use(express.json());

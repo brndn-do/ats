@@ -1,3 +1,6 @@
+import dotenv from "dotenv";
+dotenv.config();
+
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import hash from "./hash.js";
