@@ -56,7 +56,7 @@ app.post("/api/auth/login", async (req, res, next) => {
     const accessToken = jwt.sign(payload, process.env.JWT_SECRET, {
       expiresIn: "5m",
     });
-    const refreshToken = crypto.randomBytes(40).toString("hex");
+    const refreshToken = crypto.randomBytes(32).toString("hex"); // 256 bits of entropy
     const refreshTokenHash = crypto
       .createHash("sha256")
       .update(refreshToken)
@@ -64,14 +64,14 @@ app.post("/api/auth/login", async (req, res, next) => {
 
     // insert refresh token into db
     const insertQuery = `
-      INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
+      INSERT INTO refresh_tokens (user_id, refresh_token_hash, expires_at)
       VALUES ($1, $2, $3)
     `;
     const insertParams = [
       row.id,
       refreshTokenHash,
       new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
-    ]; 
+    ];
     await queryWithRetry(insertQuery, insertParams);
 
     return res.json({
@@ -81,6 +81,37 @@ app.post("/api/auth/login", async (req, res, next) => {
         refreshToken,
       },
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/auth/logout'
+app.post("/api/auth/logout", async (req, res, next) => {
+  console.log("Received POST request /api/auth/logout");
+  if (!req.body) return res.status(400).json({ error: "Missing body" });
+
+  const refreshToken = req.body.refreshToken;
+  if (!refreshToken)
+    return res.status(400).json({ error: "Missing refreshToken" });
+  if (typeof refreshToken !== "string")
+    return res.status(422).json({ error: "Incorrect data type in body" });
+
+  const refreshTokenHash = crypto
+    .createHash("sha256")
+    .update(refreshToken)
+    .digest("hex");
+
+  try {
+    const query = `
+    DELETE FROM refresh_tokens
+    WHERE refresh_token_hash = $1
+    `;
+    const params = [refreshTokenHash];
+    const result = await queryWithRetry(query, params);
+    if (result.rowCount === 0)
+      return res.status(401).json({ error: "Refresh token not found" });
+    return res.status(204).send();
   } catch (err) {
     next(err);
   }

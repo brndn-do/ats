@@ -76,7 +76,7 @@ describe("POST /api/auth/login", () => {
       expect.stringMatching(/INSERT INTO refresh_tokens/i),
       [
         expect.any(Number), // user_id
-        expect.any(String), // token_hash
+        expect.any(String), // refresh_token_hash
         expect.any(Date), // expires_at
       ]
     );
@@ -154,6 +154,68 @@ describe("POST /api/auth/login", () => {
   });
 });
 
-describe("POST /api/auth/logout", () => {});
+describe("POST /api/auth/logout", () => {
+  const refreshToken = crypto.randomBytes(32).toString("hex");
+  const refreshTokenHash = crypto
+    .createHash("sha256")
+    .update(refreshToken)
+    .digest("hex");
+
+  it("should delete the refresh token in the database", async () => {
+    pool.query.mockResolvedValueOnce({ rows: [{}], rowCount: 1 });
+    const res = await request(app)
+      .post("/api/auth/logout")
+      .send({ refreshToken });
+    expect(res.status).toBe(204);
+    expect(pool.query).toHaveBeenCalledWith(
+      expect.stringMatching(/DELETE FROM refresh_tokens/i),
+      [refreshTokenHash]
+    );
+  });
+
+  it("should return 400 if body is missing", async () => {
+    pool.query.mockResolvedValueOnce({ rows: [{}], rowCount: 1 });
+    const res = await request(app).post("/api/auth/logout");
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("Missing body");
+    expect(pool.query).not.toHaveBeenCalled();
+  });
+
+  it("should return 400 if missing refresh token", async () => {
+    pool.query.mockResolvedValueOnce({ rows: [{}], rowCount: 1 });
+    const res = await request(app).post("/api/auth/logout").send({});
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("Missing refreshToken");
+    expect(pool.query).not.toHaveBeenCalled();
+  });
+
+  it("should return 422 if refresh token is wrong data type", async () => {
+    pool.query.mockResolvedValueOnce({ rows: [{}], rowCount: 1 });
+    const res = await request(app)
+      .post("/api/auth/logout")
+      .send({ refreshToken: 123 });
+    expect(res.status).toBe(422);
+    expect(res.body.error).toBe("Incorrect data type in body");
+    expect(pool.query).not.toHaveBeenCalled();
+  });
+
+  it("should return 401 if refresh token doesn't exist in database", async () => {
+    pool.query.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+    const res = await request(app)
+      .post("/api/auth/logout")
+      .send({ refreshToken });
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe("Refresh token not found");
+  });
+
+  it("should return 500 if db failure", async () => {
+    pool.query.mockRejectedValue(new Error());
+    const res = await request(app)
+      .post("/api/auth/logout")
+      .send({ refreshToken });
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe("Internal server error");
+  });
+});
 
 describe("POST /api/auth/refresh", () => {});
