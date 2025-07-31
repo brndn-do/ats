@@ -108,9 +108,7 @@ app.post("/api/auth/logout", async (req, res, next) => {
     WHERE refresh_token_hash = $1
     `;
     const params = [refreshTokenHash];
-    const result = await queryWithRetry(query, params);
-    if (result.rowCount === 0)
-      return res.status(401).json({ error: "Refresh token not found" });
+    await queryWithRetry(query, params);
     return res.status(204).send();
   } catch (err) {
     next(err);

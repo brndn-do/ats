@@ -199,13 +199,12 @@ describe("POST /api/auth/logout", () => {
     expect(pool.query).not.toHaveBeenCalled();
   });
 
-  it("should return 401 if refresh token doesn't exist in database", async () => {
+  it("should return 204 if refresh token doesn't exist in database", async () => {
     pool.query.mockResolvedValueOnce({ rows: [], rowCount: 0 });
     const res = await request(app)
       .post("/api/auth/logout")
       .send({ refreshToken });
-    expect(res.status).toBe(401);
-    expect(res.body.error).toBe("Refresh token not found");
+    expect(res.status).toBe(204);
   });
 
   it("should return 500 if db failure", async () => {
@@ -218,4 +217,4 @@ describe("POST /api/auth/logout", () => {
   });
 });
 
-describe("POST /api/auth/refresh", () => {});
+
