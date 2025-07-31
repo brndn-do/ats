@@ -1,19 +1,18 @@
-// app.js
+import dotenv from "dotenv";
+dotenv.config();
 
 import express from "express";
 import multer from "multer";
 import queryWithRetry from "./db.js";
 import { uploadResume, downloadResume, deleteResume } from "./s3.js";
+import bcrypt from "bcrypt";
+import hash from "./utils/hash.js";
+import createTokens from "./utils/createTokens.js";
 
 const app = express();
 app.use(express.json());
 
 const upload = multer({ storage: multer.memoryStorage() });
-
-//
-//
-// TODO: add authentication to routes requiring admin authentication
-//
 
 // GET /
 app.get("/", (req, res) => {
@@ -21,8 +20,170 @@ app.get("/", (req, res) => {
   res.json({ status: "ok", message: "ATS API" });
 });
 
+// POST /api/auth/login
+app.post("/api/auth/login", async (req, res, next) => {
+  console.log("Received POST request /api/auth/login");
+  if (!req.body) return res.status(400).json({ error: "Missing body" });
+  if (!req.body.username || !req.body.password)
+    return res.status(400).json({ error: "Missing required fields" });
+  const username = req.body.username;
+  const password = req.body.password;
+  if (typeof username !== "string" || typeof password !== "string")
+    return res.status(422).json({ error: "Incorrect data type(s) in body" });
+
+  try {
+    const selectQuery = `
+      SELECT (id, username, pwd_hash, is_admin)
+      FROM users
+      WHERE username = $1
+    `;
+    const selectParams = [username];
+    const selectResult = await queryWithRetry(selectQuery, selectParams);
+
+    if (selectResult.rowCount === 0)
+      return res.status(401).json({ error: "Invalid credentials" });
+
+    const row = selectResult.rows[0];
+
+    if (!(await bcrypt.compare(password, row.pwd_hash)))
+      return res.status(401).json({ error: "Invalid credentials" });
+
+    // create access token, refresh token, and the refresh token hash
+    const { accessToken, refreshToken, refreshTokenHash } = createTokens(
+      row.id,
+      row.username,
+      row.is_admin
+    );
+
+    // insert refresh token into db
+    const insertQuery = `
+      INSERT INTO refresh_tokens (user_id, refresh_token_hash, expires_at)
+      VALUES ($1, $2, $3)
+    `;
+    const insertParams = [
+      row.id,
+      refreshTokenHash,
+      new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+    ];
+    await queryWithRetry(insertQuery, insertParams);
+
+    return res.json({
+      message: "Logged in",
+      data: {
+        accessToken,
+        refreshToken,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/auth/logout
+app.post("/api/auth/logout", async (req, res, next) => {
+  console.log("Received POST request /api/auth/logout");
+  if (!req.body) return res.status(400).json({ error: "Missing body" });
+
+  const refreshToken = req.body.refreshToken;
+  if (!refreshToken)
+    return res.status(400).json({ error: "Missing refreshToken" });
+  if (typeof refreshToken !== "string")
+    return res.status(422).json({ error: "Incorrect data type in body" });
+
+  const refreshTokenHash = hash(refreshToken);
+
+  try {
+    const query = `
+    DELETE FROM refresh_tokens
+    WHERE refresh_token_hash = $1
+    `;
+    const params = [refreshTokenHash];
+    await queryWithRetry(query, params);
+    return res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/auth/refresh
+app.post("/api/auth/refresh", async (req, res, next) => {
+  console.log("Received POST request /api/auth/refresh");
+  if (!req.body) return res.status(400).json({ error: "Missing body" });
+  if (!req.body.refreshToken)
+    return res.status(400).json({ error: "Missing refresh token" });
+  if (typeof req.body.refreshToken !== "string")
+    return res.status(422).json({ error: "Invalid data type in body" });
+  const refreshToken = req.body.refreshToken;
+  const refreshTokenHash = hash(refreshToken);
+
+  try {
+    // Look up refresh token in DB to get user ID and expiration
+    const refreshTokenQuery = `
+    SELECT (user_id, expires_at)
+    FROM refresh_tokens
+    WHERE refresh_token_hash = $1
+    `;
+    const refreshTokenParams = [refreshTokenHash];
+    const refreshTokenResult = await queryWithRetry(
+      refreshTokenQuery,
+      refreshTokenParams
+    );
+
+    // If no match or the token is expired:
+    if (
+      refreshTokenResult.rowCount === 0 ||
+      refreshTokenResult.rows[0].expires_at < new Date()
+    )
+      return res.status(401).json({ error: "Invalid refresh token" });
+
+    const userId = refreshTokenResult.rows[0].user_id;
+
+    // Look up user in DB to get user info
+    const userQuery = `
+    SELECT (id, username, pwd_hash, is_admin)
+    FROM users
+    WHERE id = $1
+    `;
+    const userParams = [userId];
+    const userResult = await queryWithRetry(userQuery, userParams);
+    const row = userResult.rows[0];
+
+    // create access token, refresh token, and the refresh token hash
+    const {
+      accessToken,
+      refreshToken: newRefreshToken, // rename to newRefreshToken
+      refreshTokenHash: newRefreshTokenHash, // rename to newRefreshTokenHash
+    } = createTokens(row.id, row.username, row.is_admin);
+
+    // update refresh token in DB
+    const updateQuery = `
+    UPDATE refresh_tokens
+    SET 
+    refresh_token_hash = $1
+    expires_at = $2
+    WHERE refresh_token_hash = $3
+    `;
+    const updateParams = [
+      newRefreshTokenHash, // new hash
+      new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+      refreshTokenHash, // old hash
+    ];
+    await queryWithRetry(updateQuery, updateParams);
+
+    return res.json({
+      message: "Refreshed token",
+      data: {
+        accessToken,
+        refreshToken: newRefreshToken,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // POST /api/resumes
-app.post("/api/resumes", upload.single("resume"), async (req, res) => {
+app.post("/api/resumes", upload.single("resume"), async (req, res, next) => {
   console.log("Received POST request /api/resumes");
   try {
     if (!req.file) {
@@ -395,6 +556,12 @@ app.delete("/api/applications/:id", async (req, res) => {
     console.error("Error deleting application:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
+});
+
+// Error handler middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ error: "Internal server error" });
 });
 
 export default app;

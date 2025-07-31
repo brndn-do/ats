@@ -1,4 +1,4 @@
-# Applicant Tracking System (ATS) – *Work in Progress*
+# Applicant Tracking System (ATS) – _Work in Progress_
 
 A full‑stack web application for posting jobs, accepting applications with résumé uploads, and managing candidates – built as a learning project.
 
@@ -8,15 +8,15 @@ A full‑stack web application for posting jobs, accepting applications with ré
 
 This project is currently focused on the backend API. The front-end is not yet started.
 
-| Status      | Feature                                       |
-| :---------- | :-------------------------------------------- |
-| `✓ Done`    | Core API for managing jobs and applications.  |
-| `✓ Done`    | PDF résumé uploads to and downloads from S3.  |
-| `✓ Done`    | Comprehensive testing suite.                  |
-| `~ In Prog` | User authentication and authorization (JWT).  |
-| `- To Do`   | Automated résumé parsing and keyword matching.|
-| `- To Do`   | Front-end React UI.                           |
-| `- To Do`   | Containerization and deployment.              |
+| Status      | Feature                                        |
+| :---------- | :--------------------------------------------- |
+| `✓ Done`    | Core API for managing jobs and applications.   |
+| `✓ Done`    | PDF résumé uploads to and downloads from S3.   |
+| `✓ Done`    | Comprehensive testing suite.                   |
+| `~ In Prog` | User authentication and authorization (JWT).   |
+| `- To Do`   | Automated résumé parsing and keyword matching. |
+| `- To Do`   | Front-end React UI.                            |
+| `- To Do`   | Containerization and deployment.               |
 
 ### Planned Improvements
 
@@ -116,28 +116,36 @@ See [TESTING.md](TESTING.md) for more detailed testing commands.
 
 ### Jobs
 
-| Method | Endpoint                     | Description                             |
-| ------ | ---------------------------- | --------------------------------------- |
-| GET    | `/api/jobs`                  | Get a list of all jobs.                 |
-| POST   | `/api/jobs`                  | **Admin** – Create a new job.           |
-| GET    | `/api/jobs/:id`              | Get a single job by its ID.             |
-| DELETE | `/api/jobs/:id`              | **Admin** – Delete a job by its ID.     |
+| Method | Endpoint        | Description                         |
+| ------ | --------------- | ----------------------------------- |
+| GET    | `/api/jobs`     | Get a list of all jobs.             |
+| POST   | `/api/jobs`     | **Admin** – Create a new job.       |
+| GET    | `/api/jobs/:id` | Get a single job by its ID.         |
+| DELETE | `/api/jobs/:id` | **Admin** – Delete a job by its ID. |
 
 ### Applications
 
-| Method | Endpoint                | Description                          |
-| ------ | ----------------------- | ------------------------------------ |
-| GET    | `/api/applications/:id` | Get a single application by its ID.  |
-| DELETE | `/api/applications/:id` | **Admin** – Delete an application by its ID. |
+| Method | Endpoint                     | Description                                           |
+| ------ | ---------------------------- | ----------------------------------------------------- |
+| GET    | `/api/applications/:id`      | Get a single application by its ID.                   |
+| DELETE | `/api/applications/:id`      | **Admin** – Delete an application by its ID.          |
 | GET    | `/api/jobs/:id/applications` | **Admin** – List all applications for a specific job. |
-| POST   | `/api/jobs/:id/applications` | Submit a new application for a specific job. |
+| POST   | `/api/jobs/:id/applications` | Submit a new application for a specific job.          |
 
 ### Résumés
 
-| Method | Endpoint           | Description                          |
-| ------ | ------------------ | ------------------------------------ |
-| POST   | `/api/resumes`     | Upload a new résumé PDF.             |
+| Method | Endpoint           | Description                              |
+| ------ | ------------------ | ---------------------------------------- |
+| POST   | `/api/resumes`     | Upload a new résumé PDF.                 |
 | GET    | `/api/resumes/:id` | **Admin** – Download a résumé by its ID. |
-| DELETE | `/api/resumes/:id` | **Admin** – Delete a résumé by its ID. |
+| DELETE | `/api/resumes/:id` | **Admin** – Delete a résumé by its ID.   |
+
+### Authentication
+
+| Method | Endpoint            | Description                                   |
+| ------ | ------------------- | --------------------------------------------- |
+| POST   | `/api/auth/login`   | **Admin** - Authenticate and get access token |
+| POST   | `/api/auth/logout`  | **Admin** – Invalidate refresh token          |
+| POST   | `/api/auth/refresh` | **Admin** – Get new access token              |
 
 > **HTTP 400** for malformed requests, **404** for not found, **422** for validation errors. **401/403** will be added once auth is live.

@@ -1,4 +1,5 @@
-// s3.js
+import dotenv from "dotenv";
+dotenv.config();
 
 import {
   S3Client,
@@ -9,8 +10,6 @@ import {
   DeleteObjectsCommand,
 } from "@aws-sdk/client-s3";
 import { v4 as uuidv4 } from "uuid";
-import dotenv from "dotenv";
-dotenv.config();
 
 let client;
 
@@ -36,7 +35,7 @@ if (process.env.NODE_ENV === "test") {
   });
 }
 
-async function emptyBucket(retries = 3, delay = 1000) {
+async function emptyBucket(retries = 3, delay = 100) {
   if (process.env.NODE_ENV !== "test") {
     throw new Error("Cannot empty bucket outside of testing");
   }
@@ -76,7 +75,7 @@ async function emptyBucket(retries = 3, delay = 1000) {
 // Given a PDF buffer, uploads the PDF to S3 bucket, generating a unique object key
 // Input: PDF buffer, optional retry count, optional delay
 // Returns an object containing the generated uuid object key
-async function uploadResume(buffer, retries = 3, delay = 1000) {
+async function uploadResume(buffer, retries = 3, delay = 100) {
   const id = uuidv4();
   const objectKey = `${id}.pdf`;
   const params = {
@@ -107,7 +106,7 @@ async function uploadResume(buffer, retries = 3, delay = 1000) {
 // Given an S3 object key, gets the file stream from S3
 // Input: object key, optional retry count, optional delay
 // Returns the result object returned from .send(new GetObjectCommand(...))
-async function downloadResume(objectKey, retries = 3, delay = 1000) {
+async function downloadResume(objectKey, retries = 3, delay = 100) {
   const params = {
     Bucket: process.env.S3_BUCKET_NAME,
     Key: objectKey,
@@ -132,7 +131,7 @@ async function downloadResume(objectKey, retries = 3, delay = 1000) {
 // Given an S3 object key, deletes the object from S3 bucket
 // Input: object key, optional retry count, optional delay
 // Returns void
-async function deleteResume(objectKey, retries = 3, delay = 1000) {
+async function deleteResume(objectKey, retries = 3, delay = 100) {
   const params = {
     Bucket: process.env.S3_BUCKET_NAME,
     Key: objectKey,

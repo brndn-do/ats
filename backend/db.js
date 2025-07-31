@@ -1,5 +1,3 @@
-// db.js
-
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -20,7 +18,7 @@ const pool = new Pool({
 // Given a SQL query and parameters, executes the query with retries
 // Input: query, params, optional retry count, optional delay
 // Returns the result object returned by .query(...)
-async function queryWithRetry(query, params = [], retries = 3, delay = 1000) {
+async function queryWithRetry(query, params = [], retries = 3, delay = 100) {
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
       console.log(`Querying... attempt ${attempt + 1} of ${retries}`);
