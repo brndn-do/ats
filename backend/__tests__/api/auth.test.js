@@ -157,7 +157,7 @@ describe("POST /api/auth/login", () => {
 });
 
 describe("POST /api/auth/logout", () => {
-  const { refreshToken, refreshTokenHash } = createTokens();
+  const { refreshToken, refreshTokenHash } = createTokens(1, "admin", true);
 
   it("should delete the refresh token in the database", async () => {
     pool.query.mockResolvedValueOnce({ rows: [{}], rowCount: 1 });
@@ -216,7 +216,7 @@ describe("POST /api/auth/logout", () => {
 });
 
 describe("POST /api/auth/refresh", () => {
-  const { refreshToken, refreshTokenHash } = createTokens();
+  const { refreshToken, refreshTokenHash } = createTokens(1, "admin", true);
 
   it("should return a new correct access token", async () => {
     pool.query.mockResolvedValueOnce({ rows: [{}], rowCount: 1 }); // SELECT ... FROM refresh_tokens
