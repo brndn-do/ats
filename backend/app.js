@@ -4,12 +4,11 @@ import express from "express";
 import multer from "multer";
 import queryWithRetry from "./db.js";
 import { uploadResume, downloadResume, deleteResume } from "./s3.js";
-import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
-import createToken from "./utils/createToken.js";
 import hash from "./utils/hash.js";
 
 import dotenv from "dotenv";
+import createTokens from "./utils/createTokens.js";
 dotenv.config();
 
 const app = express();
@@ -51,17 +50,12 @@ app.post("/api/auth/login", async (req, res, next) => {
     if (!(await bcrypt.compare(password, row.pwd_hash)))
       return res.status(401).json({ error: "Invalid credentials" });
 
-    const payload = {
-      sub: row.id,
-      name: row.username,
-      isAdmin: row.is_admin,
-    };
-
-    const accessToken = jwt.sign(payload, process.env.JWT_SECRET, {
-      expiresIn: "5m",
-    });
-    const refreshToken = createToken();
-    const refreshTokenHash = hash(refreshToken);
+    // create access token, refresh token, and the refresh token hash
+    const { accessToken, refreshToken, refreshTokenHash } = createTokens(
+      row.id,
+      row.username,
+      row.is_admin
+    );
 
     // insert refresh token into db
     const insertQuery = `
@@ -140,20 +134,13 @@ app.post("/api/auth/refresh", async (req, res, next) => {
   const userParams = [userId];
   const userResult = await queryWithRetry(userQuery, userParams);
   const row = userResult.rows[0];
-  const payload = {
-    sub: row.id,
-    name: row.username,
-    isAdmin: row.is_admin,
-  };
 
-  // Create access token
-  const accessToken = jwt.sign(payload, process.env.JWT_SECRET, {
-    expiresIn: "5m",
-  });
-
-  // Create new refresh token
-  const newRefreshToken = createToken();
-  const newRefreshTokenHash = hash(newRefreshToken);
+  // create access token, refresh token, and the refresh token hash
+  const {
+    accessToken,
+    refreshToken: newRefreshToken, // rename to newRefreshToken
+    refreshTokenHash: newRefreshTokenHash, // rename to newRefreshTokenHash
+  } = createTokens(row.id, row.username, row.is_admin);
 
   // update refresh token in DB
   const updateQuery = `

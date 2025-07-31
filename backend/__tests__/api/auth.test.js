@@ -6,7 +6,7 @@ import bcrypt from "bcrypt";
 import crypto from "crypto";
 
 import hash from "../../utils/hash.js"
-import createToken from "../../utils/createToken.js";
+import createTokens from "../../utils/createTokens.js";
 
 // Mocks the `pg` module. `new Pool()` will always return the same singleton
 // mock object, allowing tests to configure its behavior for database calls.
@@ -154,8 +154,7 @@ describe("POST /api/auth/login", () => {
 });
 
 describe("POST /api/auth/logout", () => {
-  const refreshToken = createToken();
-  const refreshTokenHash = hash(refreshToken);
+  const { refreshToken, refreshTokenHash } = createTokens();
 
   it("should delete the refresh token in the database", async () => {
     pool.query.mockResolvedValueOnce({ rows: [{}], rowCount: 1 });
@@ -214,8 +213,8 @@ describe("POST /api/auth/logout", () => {
 });
 
 describe("POST /api/auth/refresh", () => {
-  const refreshToken = createToken();
-  const refreshTokenHash = hash(refreshToken);
+ const { refreshToken, refreshTokenHash } = createTokens();
+
   it("should return a new correct access token", async () => {
     pool.query.mockResolvedValueOnce({ rows: [{}], rowCount: 1 }); // SELECT ... FROM refresh_tokens
     pool.query.mockResolvedValueOnce(userQueryResult); // SELECT ... FROM users
