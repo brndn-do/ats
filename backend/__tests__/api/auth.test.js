@@ -8,10 +8,6 @@ import crypto from "crypto";
 import hash from "../../utils/hash.js"
 import createToken from "../../utils/createToken.js";
 
-import dotenv from "dotenv";
-
-dotenv.config();
-
 // Mocks the `pg` module. `new Pool()` will always return the same singleton
 // mock object, allowing tests to configure its behavior for database calls.
 jest.mock("pg", () => {

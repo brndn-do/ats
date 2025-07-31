@@ -9,8 +9,6 @@ import {
   DeleteObjectsCommand,
 } from "@aws-sdk/client-s3";
 import { v4 as uuidv4 } from "uuid";
-import dotenv from "dotenv";
-dotenv.config();
 
 let client;
 

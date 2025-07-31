@@ -9,6 +9,9 @@ import bcrypt from "bcrypt";
 import createToken from "./utils/createToken.js";
 import hash from "./utils/hash.js";
 
+import dotenv from "dotenv";
+dotenv.config();
+
 const app = express();
 app.use(express.json());
 
