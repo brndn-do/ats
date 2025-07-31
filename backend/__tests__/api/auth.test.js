@@ -5,6 +5,9 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 
+import hash from "../../utils/hash.js"
+import createToken from "../../utils/createToken.js";
+
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -155,11 +158,8 @@ describe("POST /api/auth/login", () => {
 });
 
 describe("POST /api/auth/logout", () => {
-  const refreshToken = crypto.randomBytes(32).toString("hex");
-  const refreshTokenHash = crypto
-    .createHash("sha256")
-    .update(refreshToken)
-    .digest("hex");
+  const refreshToken = createToken();
+  const refreshTokenHash = hash(refreshToken);
 
   it("should delete the refresh token in the database", async () => {
     pool.query.mockResolvedValueOnce({ rows: [{}], rowCount: 1 });
@@ -218,11 +218,8 @@ describe("POST /api/auth/logout", () => {
 });
 
 describe("POST /api/auth/refresh", () => {
-  const refreshToken = crypto.randomBytes(32).toString("hex");
-  const refreshTokenHash = crypto
-    .createHash("sha256")
-    .update(refreshToken)
-    .digest("hex");
+  const refreshToken = createToken();
+  const refreshTokenHash = hash(refreshToken);
   it("should return a new correct access token", async () => {
     pool.query.mockResolvedValueOnce({ rows: [{}], rowCount: 1 }); // SELECT ... FROM refresh_tokens
     pool.query.mockResolvedValueOnce(userQueryResult); // SELECT ... FROM users
@@ -259,10 +256,7 @@ describe("POST /api/auth/refresh", () => {
     expect(res.status).toBe(200);
     expect(res.body.message).toBe("Refreshed token");
     const newRefreshToken = res.body.data.refreshToken;
-    const newRefreshTokenHash = crypto
-      .createHash("sha256")
-      .update(newRefreshToken)
-      .digest("hex");
+    const newRefreshTokenHash = hash(newRefreshToken);
     expect(pool.query).toHaveBeenCalledWith(
       expect.stringMatching(/UPDATE refresh_tokens/i),
       [newRefreshTokenHash, expect.any(Date), refreshTokenHash]

@@ -6,7 +6,8 @@ import queryWithRetry from "./db.js";
 import { uploadResume, downloadResume, deleteResume } from "./s3.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
-import crypto from "crypto";
+import createToken from "./utils/createToken.js";
+import hash from "./utils/hash.js";
 
 const app = express();
 app.use(express.json());
@@ -56,11 +57,8 @@ app.post("/api/auth/login", async (req, res, next) => {
     const accessToken = jwt.sign(payload, process.env.JWT_SECRET, {
       expiresIn: "5m",
     });
-    const refreshToken = crypto.randomBytes(32).toString("hex"); // 256 bits of entropy
-    const refreshTokenHash = crypto
-      .createHash("sha256")
-      .update(refreshToken)
-      .digest("hex");
+    const refreshToken = createToken();
+    const refreshTokenHash = hash(refreshToken);
 
     // insert refresh token into db
     const insertQuery = `
@@ -97,10 +95,7 @@ app.post("/api/auth/logout", async (req, res, next) => {
   if (typeof refreshToken !== "string")
     return res.status(422).json({ error: "Incorrect data type in body" });
 
-  const refreshTokenHash = crypto
-    .createHash("sha256")
-    .update(refreshToken)
-    .digest("hex");
+  const refreshTokenHash = hash(refreshToken);
 
   try {
     const query = `
@@ -119,10 +114,7 @@ app.post("/api/auth/logout", async (req, res, next) => {
 app.post("/api/auth/refresh", async (req, res, next) => {
   console.log("Received POST request /api/auth/refresh");
   const refreshToken = req.body.refreshToken;
-  const refreshTokenHash = crypto
-    .createHash("sha256")
-    .update(refreshToken)
-    .digest("hex");
+  const refreshTokenHash = hash(refreshToken);
 
   // Look up refresh token in DB to get user ID
   const refreshTokenQuery = `
@@ -157,11 +149,8 @@ app.post("/api/auth/refresh", async (req, res, next) => {
   });
 
   // Create new refresh token
-  const newRefreshToken = crypto.randomBytes(32).toString("hex"); // 256 bits of entropy
-  const newRefreshTokenHash = crypto
-    .createHash("sha256")
-    .update(newRefreshToken)
-    .digest("hex");
+  const newRefreshToken = createToken();
+  const newRefreshTokenHash = hash(newRefreshToken);
 
   // update refresh token in DB
   const updateQuery = `
