@@ -1,7 +1,7 @@
 import request from "supertest";
-import app from "../../app.js";
-import queryWithRetry, { pool } from "../../db.js";
-import { client, emptyBucket } from "../../s3.js";
+import app from "../../src/app.js";
+import queryWithRetry, { pool } from "../../src/services/db.js";
+import { client, emptyBucket } from "../../src/services/s3.js";
 import path from "path";
 import fs from "fs";
 

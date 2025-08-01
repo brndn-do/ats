@@ -1,6 +1,6 @@
 import request from "supertest";
-import app from "../../app.js";
-import queryWithRetry, { pool } from "../../db.js";
+import app from "../../src/app.js";
+import queryWithRetry, { pool } from "../../src/services/db.js";
 
 // Clean up the jobs table before test
 beforeAll(async () => {

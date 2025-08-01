@@ -1,7 +1,6 @@
 import request from "supertest";
-import app from "../../app.js";
+import app from "../../src/app.js";
 import path from "path";
-
 import { Pool } from "pg";
 import { Readable } from "stream";
 

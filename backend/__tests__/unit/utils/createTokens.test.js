@@ -1,8 +1,8 @@
 
-import createTokens from "../../../utils/createTokens.js";
+import createTokens from "../../../src/utils/createTokens.js";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
-import hash from "../../../utils/hash.js";
+import hash from "../../../src/utils/hash.js";
 
 import dotenv from "dotenv";
 

@@ -10,7 +10,7 @@ import {
   downloadResume,
   deleteResume,
   emptyBucket,
-} from "../../s3.js";
+} from "../../../src/services/s3.js";
 
 // Mocks the S3 client. The `send` method is a mock function, preventing
 // actual AWS calls. This allows tests to simulate S3 operations.

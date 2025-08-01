@@ -1,4 +1,4 @@
-import queryWithRetry from "../../db.js";
+import queryWithRetry from "../../../src/services/db.js";
 
 import { Pool } from "pg";
 

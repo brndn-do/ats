@@ -1,6 +1,6 @@
 import app from "./app.js";
-import { pool } from "./db.js";
-import { client } from "./s3.js";
+import { pool } from "./services/db.js";
+import { client } from "./services/s3.js";
 
 const PORT = 3000;
 const server = app.listen(PORT, () => {
