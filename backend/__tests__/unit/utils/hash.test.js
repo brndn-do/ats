@@ -1,4 +1,4 @@
-import hash from "../../../utils/hash.js";
+import hash from "../../../src/utils/hash.js";
 import crypto from "crypto";
 
 it("should return a SHA-256 hash", () => {

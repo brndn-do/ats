@@ -1,5 +1,5 @@
 import request from "supertest";
-import app from "../../app.js";
+import app from "../../src/app.js";
 
 it("GET / should retrieve status: ok message: ATS API", async () => {
   // Action: send GET request to root route

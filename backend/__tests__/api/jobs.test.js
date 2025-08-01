@@ -1,6 +1,5 @@
 import request from "supertest";
-import app from "../../app.js";
-
+import app from "../../src/app.js";
 import { Pool } from "pg";
 
 // Mocks the `pg` module. `new Pool()` will always return the same singleton

@@ -1,12 +1,11 @@
 import request from "supertest";
-import app from "../../app.js";
+import app from "../../src/app.js";
 import { Pool } from "pg";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
-
-import hash from "../../utils/hash.js";
-import createTokens from "../../utils/createTokens.js";
+import hash from "../../src/utils/hash.js";
+import createTokens from "../../src/utils/createTokens.js";
 
 // Mocks the `pg` module. `new Pool()` will always return the same singleton
 // mock object, allowing tests to configure its behavior for database calls.
