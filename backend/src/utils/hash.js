@@ -1,4 +1,4 @@
-import crypto from "crypto";
+import crypto from 'crypto';
 
 /**
  * Hashes the given string using SHA-256 and returns
@@ -8,8 +8,10 @@ import crypto from "crypto";
  * @returns {string} The SHA-256 hash of the input, encoded in hex.
  */
 function hash(input) {
-  if (typeof input !== "string") throw new Error("Input is not a string");
-  return crypto.createHash("sha256").update(input).digest("hex");
+  if (typeof input !== 'string') {
+    throw new Error('Input is not a string');
+  }
+  return crypto.createHash('sha256').update(input).digest('hex');
 }
 
 export default hash;

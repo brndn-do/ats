@@ -1,7 +1,7 @@
-import dotenv from "dotenv";
+import dotenv from 'dotenv';
 dotenv.config();
 
-import pkg from "pg";
+import pkg from 'pg';
 const { Pool } = pkg;
 
 const pool = new Pool({
@@ -21,15 +21,13 @@ const pool = new Pool({
 async function queryWithRetry(query, params = [], retries = 3, delay = 100) {
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
-      console.log(`Querying... attempt ${attempt + 1} of ${retries}`);
       const result = await pool.query(query, params);
-      console.log("Query succeeded!");
+
       return result;
     } catch (err) {
       if (attempt === retries - 1) {
         throw err;
       }
-      console.log(`Retrying... Attempt ${attempt + 1} of ${retries}`);
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }

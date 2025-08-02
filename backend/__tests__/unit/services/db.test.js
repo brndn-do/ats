@@ -1,17 +1,17 @@
-import queryWithRetry from "../../../src/services/db.js";
+import queryWithRetry from '../../../src/services/db.js';
 
-import { Pool } from "pg";
+import { Pool } from 'pg';
 
 // Mocks the `pg` module. `new Pool()` will always return the same singleton
 // mock object, allowing tests to configure its behavior for database calls.
-jest.mock("pg", () => {
+jest.mock('pg', () => {
   const mPool = { query: jest.fn() };
   return { Pool: jest.fn(() => mPool) };
 });
 
-const errMsg = "DB connection error";
+const errMsg = 'DB connection error';
 
-describe("queryWithRetry", () => {
+describe('queryWithRetry', () => {
   const id = 1;
   const query = `
     SELECT * FROM jobs
@@ -27,14 +27,14 @@ describe("queryWithRetry", () => {
     pool.query.mockClear();
   });
 
-  it("should succeed on the first attempt", async () => {
+  it('should succeed on the first attempt', async () => {
     pool.query.mockResolvedValueOnce(mockResolvedValue);
     const dbResult = await queryWithRetry(query, params);
     expect(dbResult).toBe(mockResolvedValue);
     expect(pool.query).toHaveBeenCalledTimes(1);
   });
 
-  it("should succeed after one retry if the first attempt fails", async () => {
+  it('should succeed after one retry if the first attempt fails', async () => {
     pool.query.mockRejectedValueOnce(new Error(errMsg));
     pool.query.mockResolvedValueOnce(mockResolvedValue);
     const dbResult = await queryWithRetry(query, params);
@@ -42,13 +42,13 @@ describe("queryWithRetry", () => {
     expect(pool.query).toHaveBeenCalledTimes(2);
   });
 
-  it("should throw an error after all retry attempts fail", async () => {
+  it('should throw an error after all retry attempts fail', async () => {
     pool.query.mockRejectedValue(new Error(errMsg));
     await expect(queryWithRetry(query, params)).rejects.toThrow(errMsg);
     expect(pool.query).toHaveBeenCalledTimes(3);
   });
 
-  it("should correctly pass query and parameters to the database client", async () => {
+  it('should correctly pass query and parameters to the database client', async () => {
     pool.query.mockResolvedValueOnce(mockResolvedValue);
     await queryWithRetry(query, params);
     expect(pool.query).toHaveBeenCalledTimes(1);

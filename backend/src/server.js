@@ -1,6 +1,6 @@
-import app from "./app.js";
-import { pool } from "./services/db.js";
-import { client } from "./services/s3.js";
+import app from './app.js';
+import { pool } from './services/db.js';
+import { client } from './services/s3.js';
 
 const PORT = 3000;
 const server = app.listen(PORT, () => {
@@ -8,33 +8,33 @@ const server = app.listen(PORT, () => {
 });
 
 async function gracefulShutdown() {
-  console.log("Received kill signal, shutting down gracefully.");
+  console.log('Received kill signal, shutting down gracefully.');
 
   // Stop accepting new connections
   server.close(async (err) => {
     if (err) {
-      console.error("Error closing HTTP server:", err);
+      console.error('Error closing HTTP server:', err);
       process.exit(1);
     }
 
     try {
       // Wait for all clients in the pool to disconnect
       await pool.end();
-      console.log("Database pool has been closed.");
+      console.log('Database pool has been closed.');
 
       // Force-close the S3 client socket
       client.destroy();
-      console.log("S3 client has been closed.");
+      console.log('S3 client has been closed.');
 
-      console.log("Shutdown complete; exiting.");
+      console.log('Shutdown complete; exiting.');
       process.exit(0);
     } catch (shutdownErr) {
-      console.error("Error during graceful shutdown:", shutdownErr);
+      console.error('Error during graceful shutdown:', shutdownErr);
       process.exit(1);
     }
   });
 }
 
 // Listen for kill signals
-process.on("SIGINT", gracefulShutdown);
-process.on("SIGTERM", gracefulShutdown);
+process.on('SIGINT', gracefulShutdown);
+process.on('SIGTERM', gracefulShutdown);

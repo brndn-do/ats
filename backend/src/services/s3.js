@@ -1,6 +1,3 @@
-import dotenv from "dotenv";
-dotenv.config();
-
 import {
   S3Client,
   PutObjectCommand,
@@ -8,13 +5,17 @@ import {
   DeleteObjectCommand,
   ListObjectsV2Command,
   DeleteObjectsCommand,
-} from "@aws-sdk/client-s3";
-import { v4 as uuidv4 } from "uuid";
+} from '@aws-sdk/client-s3';
+import { v4 as uuidv4 } from 'uuid';
+
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 let client;
 
-if (process.env.NODE_ENV === "test") {
-  console.log("S3CLIENT: using test credentials");
+if (process.env.NODE_ENV === 'test') {
+  console.log('S3CLIENT: using test credentials');
   // Use credentials with broader permissions for testing
   client = new S3Client({
     region: process.env.S3_REGION,
@@ -25,7 +26,7 @@ if (process.env.NODE_ENV === "test") {
   });
 } else {
   // Use more restricted credentials for development/production
-  console.log("S3CLIENT: using restricted credentials");
+  console.log('S3CLIENT: using restricted credentials');
   client = new S3Client({
     region: process.env.S3_REGION,
     credentials: {
@@ -36,19 +37,16 @@ if (process.env.NODE_ENV === "test") {
 }
 
 async function emptyBucket(retries = 3, delay = 100) {
-  if (process.env.NODE_ENV !== "test") {
-    throw new Error("Cannot empty bucket outside of testing");
+  if (process.env.NODE_ENV !== 'test') {
+    throw new Error('Cannot empty bucket outside of testing');
   }
 
   for (let i = 0; i < retries; i++) {
     try {
       const listParams = { Bucket: process.env.S3_BUCKET_NAME };
-      const listedObjects = await client.send(
-        new ListObjectsV2Command(listParams)
-      );
+      const listedObjects = await client.send(new ListObjectsV2Command(listParams));
 
       if (!listedObjects.Contents || listedObjects.Contents.length === 0) {
-        console.log("Bucket is already empty!");
         return;
       }
 
@@ -60,7 +58,7 @@ async function emptyBucket(retries = 3, delay = 100) {
       };
 
       await client.send(new DeleteObjectsCommand(deleteParams));
-      console.log("Emptied Bucket!");
+
       return;
     } catch (error) {
       if (i < retries - 1) {
@@ -82,22 +80,19 @@ async function uploadResume(buffer, retries = 3, delay = 100) {
     Bucket: process.env.S3_BUCKET_NAME,
     Key: objectKey,
     Body: buffer,
-    ContentType: "application/pdf",
-    ContentDisposition: "inline",
-    ACL: "private",
+    ContentType: 'application/pdf',
+    ContentDisposition: 'inline',
+    ACL: 'private',
   };
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
-      console.log(`Uploading... attempt ${attempt + 1} of ${retries}`);
       const command = new PutObjectCommand(params);
       await client.send(command);
-      console.log("Upload succeeded!");
       return { objectKey };
     } catch (err) {
       if (attempt === retries - 1) {
         throw err;
       }
-      console.log(`Retrying... Attempt ${attempt + 1} of ${retries}`);
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
@@ -113,16 +108,13 @@ async function downloadResume(objectKey, retries = 3, delay = 100) {
   };
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
-      console.log(`Downloading... attempt ${attempt + 1} of ${retries}`);
       const command = new GetObjectCommand(params);
       const result = await client.send(command);
-      console.log("Download succeeded!");
       return result;
     } catch (err) {
       if (attempt === retries - 1) {
         throw err;
       }
-      console.log(`Retrying... Attempt ${attempt + 1} of ${retries}`);
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
@@ -138,16 +130,14 @@ async function deleteResume(objectKey, retries = 3, delay = 100) {
   };
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
-      console.log(`Deleting... attempt ${attempt + 1} of ${retries}`);
       const command = new DeleteObjectCommand(params);
       await client.send(command);
-      console.log("Delete succeeded!");
+
       return;
     } catch (err) {
       if (attempt === retries - 1) {
         throw err;
       }
-      console.log(`Retrying... Attempt ${attempt + 1} of ${retries}`);
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
