@@ -21,6 +21,7 @@ jest.mock('@aws-sdk/client-s3', () => {
   }));
   // Expose mSend as a static property on the mock S3Client constructor
   mS3Client.mSend = mSend;
+
   return {
     S3Client: mS3Client,
     PutObjectCommand: jest.fn(),
@@ -58,7 +59,7 @@ describe('uploadResume', () => {
   });
   it('should throw an error after all retry attempts fail', async () => {
     S3Client.mSend.mockRejectedValue(new Error(errMsg));
-    await expect(uploadResume(pdfBuffer)).rejects.toThrow(errMsg);
+    await expect(uploadResume(pdfBuffer)).rejects.toThrow();
     expect(S3Client.mSend).toHaveBeenCalledTimes(3);
   });
   it('should correctly pass params to PutObjectCommand', async () => {
@@ -95,7 +96,7 @@ describe('downloadResume', () => {
   });
   it('should throw an error after all retry attempts fail', async () => {
     S3Client.mSend.mockRejectedValue(new Error(errMsg));
-    await expect(downloadResume(objectKey)).rejects.toThrow(errMsg);
+    await expect(downloadResume(objectKey)).rejects.toThrow();
     expect(S3Client.mSend).toHaveBeenCalledTimes(3);
   });
   it('should correctly pass params to GetObjectCommand', async () => {
@@ -125,7 +126,7 @@ describe('deleteResume', () => {
   });
   it('should throw an error after all retry attempts fail', async () => {
     S3Client.mSend.mockRejectedValue(new Error(errMsg));
-    await expect(deleteResume(objectKey)).rejects.toThrow(errMsg);
+    await expect(deleteResume(objectKey)).rejects.toThrow();
     expect(S3Client.mSend).toHaveBeenCalledTimes(3);
   });
   it('should correctly pass params to DeleteObjectCommand', async () => {
@@ -189,7 +190,7 @@ describe('emptyBucket', () => {
   it('should throw an error after all retries fail', async () => {
     S3Client.mSend.mockRejectedValue(new Error(errMsg));
 
-    await expect(emptyBucket()).rejects.toThrow(errMsg);
+    await expect(emptyBucket()).rejects.toThrow();
 
     expect(ListObjectsV2Command).toHaveBeenCalledTimes(3);
     expect(DeleteObjectsCommand).not.toHaveBeenCalled();

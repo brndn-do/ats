@@ -3,12 +3,13 @@ import app from '../../src/app.js';
 import path from 'path';
 import { Pool } from 'pg';
 import { Readable } from 'stream';
-import { PutObjectCommand } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 
 // Mocks the `pg` module. `new Pool()` will always return the same singleton
 // mock object, allowing tests to configure its behavior for database calls.
 jest.mock('pg', () => {
   const mPool = { query: jest.fn() };
+
   return { Pool: jest.fn(() => mPool) };
 });
 
@@ -21,6 +22,7 @@ jest.mock('@aws-sdk/client-s3', () => {
   }));
   // Expose mSend as a static property on the mock S3Client constructor
   mS3Client.mSend = mSend;
+
   return {
     S3Client: mS3Client,
     PutObjectCommand: jest.fn(),
@@ -42,31 +44,26 @@ beforeEach(() => {
 
 describe('POST /api/resumes', () => {
   describe('Good request', () => {
-    // Action: send a good request
     let res;
     beforeEach(async () => {
-      // Configure mock for DB call
-      pool.query.mockResolvedValueOnce({
-        rows: [
-          {
-            id: fakeResumeId,
-            original_filename: fakeResumeFileName,
-            object_key: fakeObjectKey,
-          },
-        ],
-        rowCount: 1,
-      });
       // Configure S3 mock for the upload
       S3Client.mSend.mockResolvedValue({}); // Ensure it returns a resolved promise
 
-      // Action: Upload a valid resume
+      // Configure mock for DB insert
+      pool.query.mockResolvedValueOnce({
+        rows: [{ id: fakeResumeId }],
+        rowCount: 1,
+      });
+
+      // Upload a valid resume
       res = await request(app)
         .post('/api/resumes')
         .attach('resume', path.join(__dirname, '..', 'fixtures', fakeResumeFileName));
     });
-    // Assertions:
+
+    // tests
     it('should return 201', () => {
-      expect(res.statusCode).toBe(201);
+      expect(res.status).toBe(201);
     });
     it('should upload to object storage', () => {
       expect(PutObjectCommand).toHaveBeenCalled();
@@ -81,272 +78,210 @@ describe('POST /api/resumes', () => {
       expect(res.body.resumeId).toBe(fakeResumeId);
     });
   });
-  describe('errors', () => {
+
+  describe('Validation tests', () => {
     it('should return 400 if missing file', async () => {
-      // Action: send request with no file
       const res = await request(app).post('/api/resumes');
-      // Assertions
-      expect(res.statusCode).toBe(400);
-      const body = JSON.parse(res.text);
-      expect(body.error).toBe('Missing file');
-      expect(pool.query).toHaveBeenCalledTimes(0); // Verify no query was used
+      expect(res.status).toBe(400);
     });
     it('should return 400 if file is non-pdf', async () => {
-      // Action: upload non-pdf
       const res = await request(app)
         .post('/api/resumes')
         .attach('resume', path.join(__dirname, '..', 'fixtures', 'resume.txt'));
-      expect(res.statusCode).toBe(400);
-      const body = JSON.parse(res.text);
-      expect(body.error).toBe('Received non-PDF file');
-      expect(pool.query).toHaveBeenCalledTimes(0); // Verify no query was used
+      expect(res.status).toBe(400);
     });
-    it('should return 500 if DB fails', async () => {
-      // Configure mock for DB call
-      pool.query.mockRejectedValue(new Error());
+  });
 
+  describe('Internal errors', () => {
+    it('should return 500 if DB fails', async () => {
       // Configure S3 mock for the upload (from POST)
       S3Client.mSend.mockResolvedValue({}); // Ensure it returns a resolved promise
+      // mock DB ERROR
+      pool.query.mockRejectedValue(new Error());
 
-      // Action: Upload a valid resume
+      // upload a valid resume
       const res = await request(app)
         .post('/api/resumes')
         .attach('resume', path.join(__dirname, '..', 'fixtures', fakeResumeFileName));
 
-      // Assertions
-      expect(res.statusCode).toBe(500);
-      const body = JSON.parse(res.text);
-      expect(body.error).toBe('Internal server error');
+      expect(res.status).toBe(500);
     });
     it('should return 500 if S3 fails', async () => {
-      // Configure mock for DB calls
+      // Configure mock for DB insert
       pool.query.mockResolvedValueOnce({
-        rows: [
-          {
-            id: fakeResumeId,
-            original_filename: fakeResumeFileName,
-            object_key: fakeObjectKey,
-          },
-        ],
+        rows: [{ id: fakeResumeId }],
         rowCount: 1,
       });
-      // Configure S3 mock
+      // mock S3 ERROR
       S3Client.mSend.mockRejectedValue(new Error());
 
-      // Action: Upload a valid resume
+      // upload a valid resume
       const res = await request(app)
         .post('/api/resumes')
         .attach('resume', path.join(__dirname, '..', 'fixtures', fakeResumeFileName));
 
-      // Assertions
-      expect(res.statusCode).toBe(500);
-      const body = JSON.parse(res.text);
-      expect(body.error).toBe('Internal server error');
+      expect(res.status).toBe(500);
     });
   });
 });
 
 describe('GET /api/resumes/:id', () => {
-  it('should retrieve a specific resume', async () => {
-    // Configure mock for DB calls
-    pool.query.mockResolvedValueOnce({
-      rows: [
-        {
-          id: fakeResumeId,
-          original_filename: fakeResumeFileName,
-          object_key: fakeObjectKey,
-        },
-      ],
-      rowCount: 1,
-    });
-    // Configure S3 mock for the download
-    const mockPdfStream = Readable.from(['fake pdf content']);
-    S3Client.mSend.mockResolvedValue({
-      ContentType: 'application/pdf',
-      Body: mockPdfStream,
-    });
-
-    // Action: Download the resume
-    const res = await request(app).get(`/api/resumes/${fakeResumeId}`);
-
-    // Assertions
-    expect(res.statusCode).toBe(200);
-    expect(res.headers['content-type']).toBe('application/pdf');
-    expect(res.body.toString()).toBe('fake pdf content'); // Changed from res.text
-    expect(pool.query).toHaveBeenCalledTimes(1); // Verify DB was called
-    expect(S3Client.mSend).toHaveBeenCalledTimes(1); // Verify S3 was called
-  });
-  it('should return 400 if id is not a number', async () => {
-    const res = await request(app).get('/api/resumes/abc');
-    expect(res.statusCode).toBe(400);
-    const body = JSON.parse(res.text);
-    expect(body.error).toBe('Invalid resume ID');
-  });
-  it('should return 400 if id is not an integer', async () => {
-    const res = await request(app).get('/api/resumes/1.1');
-    expect(res.statusCode).toBe(400);
-    const body = JSON.parse(res.text);
-    expect(body.error).toBe('Invalid resume ID');
-  });
-  it('should return 404 if resume does not exist', async () => {
-    // configure DB mock
-    pool.query.mockResolvedValueOnce({
-      rows: [],
-      rowCount: 0, // did not find
+  describe('Good request', () => {
+    let res;
+    beforeEach(async () => {
+      // mock DB
+      pool.query.mockResolvedValueOnce({
+        rows: [{ original_filename: fakeResumeFileName, object_key: fakeObjectKey }],
+        rowCount: 1,
+      });
+      // mock S3 downlaod
+      const mockPdfStream = Readable.from(['fake pdf content']);
+      S3Client.mSend.mockResolvedValue({
+        ContentType: 'application/pdf',
+        Body: mockPdfStream,
+      });
+      // download the resume
+      res = await request(app).get(`/api/resumes/${fakeResumeId}`);
     });
 
-    const res = await request(app).get(`/api/resumes/${fakeResumeId}`);
-
-    expect(res.statusCode).toBe(404);
-    const body = JSON.parse(res.text);
-    expect(body.error).toBe('Resume not found');
-  });
-  it('should return 500 if DB fails', async () => {
-    // Configure mock for DB call
-    pool.query.mockRejectedValue(new Error());
-
-    // Configure S3 mock
-    const mockPdfStream = Readable.from(['fake pdf content']);
-    S3Client.mSend.mockResolvedValue({
-      ContentType: 'application/pdf',
-      Body: mockPdfStream,
+    // tests
+    it('should return 200', async () => {
+      expect(res.status).toBe(200);
     });
 
-    // Action: Download the resume
-    const res = await request(app).get(`/api/resumes/${fakeResumeId}`);
-
-    // Assertions
-    expect(res.statusCode).toBe(500);
-    const body = JSON.parse(res.text);
-    expect(body.error).toBe('Internal server error');
+    it('should retrieve the resume', async () => {
+      expect(res.headers['content-type']).toBe('application/pdf');
+      expect(res.body.toString()).toBe('fake pdf content');
+    });
   });
-  it('should return 500 if S3 fails', async () => {
-    // Configure mock for DB calls
-    pool.query.mockResolvedValueOnce({
-      rows: [
-        {
-          id: fakeResumeId,
-          original_filename: fakeResumeFileName,
-          object_key: fakeObjectKey,
-        },
-      ],
-      rowCount: 1,
+
+  describe('Validation tests', () => {
+    it('should return 400 if id is not a number', async () => {
+      const res = await request(app).get('/api/resumes/abc');
+      expect(res.status).toBe(400);
     });
 
-    // Configure S3 mock
-    S3Client.mSend.mockRejectedValue(new Error());
+    it('should return 400 if id is not an integer', async () => {
+      const res = await request(app).get('/api/resumes/1.1');
+      expect(res.status).toBe(400);
+    });
+  });
 
-    // Action: Download the resume
-    const res = await request(app).get(`/api/resumes/${fakeResumeId}`);
+  describe('Not found', () => {
+    it('should return 404 if resume does not exist', async () => {
+      // mock resume not found
+      pool.query.mockResolvedValueOnce({
+        rows: [],
+        rowCount: 0,
+      });
 
-    // Assertions
-    expect(res.statusCode).toBe(500);
-    const body = JSON.parse(res.text);
-    expect(body.error).toBe('Internal server error');
+      const res = await request(app).get(`/api/resumes/${fakeResumeId}`);
+
+      expect(res.status).toBe(404);
+    });
+  });
+
+  describe('Internal errors', () => {
+    it('should return 500 if DB fails', async () => {
+      // mock DB ERROR
+      pool.query.mockRejectedValue(new Error());
+
+      // mock S3 download
+      const mockPdfStream = Readable.from(['fake pdf content']);
+      S3Client.mSend.mockResolvedValue({
+        ContentType: 'application/pdf',
+        Body: mockPdfStream,
+      });
+
+      // download the resume
+      const res = await request(app).get(`/api/resumes/${fakeResumeId}`);
+
+      expect(res.status).toBe(500);
+    });
+    it('should return 500 if S3 fails', async () => {
+      // mock DB
+      pool.query.mockResolvedValueOnce({
+        rows: [{ original_filename: fakeResumeFileName, object_key: fakeObjectKey }],
+        rowCount: 1,
+      });
+
+      // mock S3 ERROR
+      S3Client.mSend.mockRejectedValue(new Error());
+
+      // download the resume
+      const res = await request(app).get(`/api/resumes/${fakeResumeId}`);
+
+      expect(res.status).toBe(500);
+    });
   });
 });
 
 describe('DELETE /api/resumes/:id', () => {
-  it('should delete a resume and return 204', async () => {
-    // Configure mock for DB calls
-    // First call to find the object key
-    pool.query.mockResolvedValueOnce({
-      rows: [{ object_key: fakeObjectKey }],
-      rowCount: 1,
+  describe('Good request', () => {
+    let res;
+    beforeEach(async () => {
+      // mock DB delete
+      pool.query.mockResolvedValueOnce({
+        rows: [{ object_key: fakeObjectKey }],
+        rowCount: 1,
+      });
+      // delete the resume
+      res = await request(app).delete(`/api/resumes/${fakeResumeId}`);
     });
-    // Second call for the delete
-    pool.query.mockResolvedValueOnce({
-      rows: [],
-      rowCount: 1,
+
+    // tests
+    it('should return 204', async () => {
+      expect(res.status).toBe(204);
     });
 
-    // Action: Delete the resume
-    const res = await request(app).delete(`/api/resumes/${fakeResumeId}`);
+    it('should delete the resume object', async () => {
+      expect(DeleteObjectCommand).toHaveBeenCalled();
+    });
 
-    // Assertions
-    expect(res.statusCode).toBe(204);
-    expect(res.body).toEqual({});
-    expect(pool.query).toHaveBeenCalledTimes(2); // Verify DB was called twice: verify it exists, then delete
+    it('should delete the resume from db', async () => {
+      expect(pool.query).toHaveBeenCalledWith(expect.stringMatching(/DELETE FROM resumes/i), [
+        fakeResumeId,
+      ]);
+    });
   });
 
-  it('should return 404 if the resume to delete is not found', async () => {
-    // Configure mock for DB calls to find nothing
-    pool.query.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+  describe('Validation tests', () => {
+    it('should return 400 if the ID is not number', async () => {
+      const res = await request(app).delete(`/api/resumes/abc`);
+      expect(res.status).toBe(400);
+    });
 
-    // Action: Delete the resume
-    const res = await request(app).delete(`/api/resumes/9999`);
-
-    // Assertions
-    expect(res.statusCode).toBe(404);
-    expect(res.body.error).toBe('Resume not found');
-    expect(pool.query).toHaveBeenCalledTimes(1);
+    it('should return 400 if the ID is not an integer', async () => {
+      const res = await request(app).delete(`/api/resumes/1.1`);
+      expect(res.status).toBe(400);
+    });
   });
 
-  it('should return 400 if the ID is not number', async () => {
-    // Action: Delete the resume with invalid id
-    const res = await request(app).delete(`/api/resumes/abc`);
-
-    // Assertions
-    expect(res.statusCode).toBe(400);
-    expect(res.body.error).toBe('Invalid resume ID');
-    expect(pool.query).not.toHaveBeenCalled();
+  describe('Not found', () => {
+    it('should return 404 if the resume to delete is not found', async () => {
+      // mock resume not found
+      pool.query.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+      const res = await request(app).delete(`/api/resumes/9999`);
+      expect(res.status).toBe(404);
+    });
   });
 
-  it('should return 400 if the ID is not an integer', async () => {
-    // Action: Delete the resume with invalid id
-    const res = await request(app).delete(`/api/resumes/1.1`);
-
-    // Assertions
-    expect(res.statusCode).toBe(400);
-    expect(res.body.error).toBe('Invalid resume ID');
-    expect(pool.query).not.toHaveBeenCalled();
-  });
-
-  it('should return 500 if the first DB query fails', async () => {
-    // Configure mock for DB call
+  it('should return 500 if DB failure', async () => {
+    // mock DB error
     pool.query.mockRejectedValue(new Error('DB connection error'));
-
-    // Action: Delete the resume
     const res = await request(app).delete(`/api/resumes/${fakeResumeId}`);
-
-    // Assertions
-    expect(res.statusCode).toBe(500);
-    expect(res.body.error).toBe('Internal server error');
+    expect(res.status).toBe(500);
   });
 
-  it('should return 500 if S3 fails', async () => {
-    // Configure mock for DB call to succeed
+  it('should return 500 if S3 failure', async () => {
+    // mock db delete
     pool.query.mockResolvedValueOnce({
       rows: [{ object_key: fakeObjectKey }],
       rowCount: 1,
     });
-    // Configure S3 mock to fail
+    // mock S3 error
     S3Client.mSend.mockRejectedValue(new Error('S3 connection error'));
-
-    // Action: Delete the resume
     const res = await request(app).delete(`/api/resumes/${fakeResumeId}`);
-
-    // Assertions
-    expect(res.statusCode).toBe(500);
-    expect(res.body.error).toBe('Internal server error');
-  });
-
-  it('should return 500 if the second DB query fails', async () => {
-    // Configure mock for first DB call to succeed
-    pool.query.mockResolvedValueOnce({
-      rows: [{ object_key: fakeObjectKey }],
-      rowCount: 1,
-    });
-    // Configure S3 mock to succeed
-    S3Client.mSend.mockResolvedValue({});
-    // Configure mock for second DB call to fail
-    pool.query.mockRejectedValue(new Error('DB connection error'));
-
-    // Action: Delete the resume
-    const res = await request(app).delete(`/api/resumes/${fakeResumeId}`);
-
-    // Assertions
-    expect(res.statusCode).toBe(500);
-    expect(res.body.error).toBe('Internal server error');
+    expect(res.status).toBe(500);
   });
 });

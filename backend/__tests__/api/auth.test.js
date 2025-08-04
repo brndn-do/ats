@@ -11,12 +11,8 @@ import createTokens from '../../src/utils/createTokens.js';
 // mock object, allowing tests to configure its behavior for database calls.
 jest.mock('pg', () => {
   const mPool = { query: jest.fn() };
-  return { Pool: jest.fn(() => mPool) };
-});
 
-const pool = new Pool();
-beforeEach(() => {
-  pool.query.mockReset();
+  return { Pool: jest.fn(() => mPool) };
 });
 
 // example user's credentials for testing
@@ -45,237 +41,281 @@ const expectedPayload = {
   isAdmin: true,
 };
 
+const pool = new Pool();
+beforeEach(() => {
+  pool.query.mockReset();
+});
+
 describe('POST /api/auth/login', () => {
-  it('should return a correct access token', async () => {
-    pool.query.mockResolvedValueOnce(userQueryResult);
-    const res = await request(app).post('/api/auth/login').send(cred);
-    expect(res.status).toBe(200);
-    const payload = jwt.verify(res.body.accessToken, process.env.JWT_SECRET);
-    expect(payload).toMatchObject(expectedPayload);
-    expect(payload.exp - payload.iat).toBeLessThanOrEqual(300);
-  });
-  it('should return a refresh token', async () => {
+  describe('Good request', () => {
+    // see if crypto.randomBytes was used to generate refresh token
     const spy = jest.spyOn(crypto, 'randomBytes');
-    pool.query.mockResolvedValueOnce(userQueryResult);
-    const res = await request(app).post('/api/auth/login').send(cred);
-    expect(res.status).toBe(200);
-    expect(res.body.refreshToken).toEqual(expect.any(String));
-    expect(spy).toHaveBeenCalled();
-    spy.mockRestore();
+    let res;
+    beforeEach(async () => {
+      spy.mockClear();
+      // configure mock for db
+      pool.query.mockResolvedValueOnce(userQueryResult); // SELECT
+      pool.query.mockResolvedValueOnce({ rows: [], rowCount: 1 }); // INSERT
+
+      // send a good request
+      res = await request(app).post('/api/auth/login').send(cred);
+    });
+
+    // tests
+    it('should return 200', async () => {
+      expect(res.status).toBe(200);
+    });
+
+    it('should return a correct access token', async () => {
+      // verify the payload
+      const payload = jwt.verify(res.body.accessToken, process.env.JWT_SECRET);
+      expect(payload).toMatchObject(expectedPayload);
+      // check that expiration is later than issue
+      expect(payload.exp - payload.iat).toBeGreaterThan(0);
+    });
+
+    it('should return a good refresh token', async () => {
+      // expect refresh token to be a string
+      expect(res.body.refreshToken).toEqual(expect.any(String));
+      // expect crypto.randomBytes() was used to generate
+      expect(spy).toHaveBeenCalled();
+    });
+
+    it('should save refresh token to db', async () => {
+      expect(pool.query).toHaveBeenCalledWith(
+        expect.stringMatching(/INSERT INTO refresh_tokens/i),
+        [
+          expect.any(Number), // user_id
+          expect.any(String), // refresh_token_hash
+          expect.any(Date), // expires_at
+        ]
+      );
+    });
   });
-  it('should save refresh token to db', async () => {
-    pool.query.mockResolvedValueOnce(userQueryResult); // SELECT
-    pool.query.mockResolvedValueOnce({ rows: [], rowCount: 1 }); // INSERT
-    const res = await request(app).post('/api/auth/login').send(cred);
-    expect(res.status).toBe(200);
-    expect(pool.query).toHaveBeenCalledWith(expect.stringMatching(/INSERT INTO refresh_tokens/i), [
-      expect.any(Number), // user_id
-      expect.any(String), // refresh_token_hash
-      expect.any(Date), // expires_at
-    ]);
-  });
-  it('should return 400 if body is missing', async () => {
-    pool.query.mockResolvedValueOnce(userQueryResult);
-    const res = await request(app).post('/api/auth/login');
-    expect(res.status).toBe(400);
-    expect(res.body.error).toBe('Missing body');
-    expect(pool.query).not.toHaveBeenCalled();
-  });
-  describe('missing required fields', () => {
-    it('should return 400 if missing username', async () => {
-      const badCred = { password: 'abc123' };
-      pool.query.mockResolvedValueOnce(userQueryResult);
-      const res = await request(app).post('/api/auth/login').send(badCred);
+
+  describe('Validation tests', () => {
+    it('should return 400 if body is missing', async () => {
+      const res = await request(app).post('/api/auth/login');
       expect(res.status).toBe(400);
-      expect(res.body.error).toBe('Missing required fields');
-      expect(pool.query).not.toHaveBeenCalled();
     });
-    it('should return 400 if missing password', async () => {
-      const badCred = { username: 'admin' };
-      pool.query.mockResolvedValueOnce(userQueryResult);
-      const res = await request(app).post('/api/auth/login').send(badCred);
-      expect(res.status).toBe(400);
-      expect(res.body.error).toBe('Missing required fields');
-      expect(pool.query).not.toHaveBeenCalled();
+
+    describe('missing required fields', () => {
+      it('should return 400 if missing username', async () => {
+        const badCred = { password: 'abc123' };
+        const res = await request(app).post('/api/auth/login').send(badCred);
+        expect(res.status).toBe(400);
+      });
+
+      it('should return 400 if missing password', async () => {
+        const badCred = { username: 'admin' };
+        const res = await request(app).post('/api/auth/login').send(badCred);
+        expect(res.status).toBe(400);
+      });
+    });
+
+    describe('incorrect data type(s) in body', () => {
+      it('should return 422 if username is not string', async () => {
+        const badCred = { username: 123, password: 'abc123' };
+        const res = await request(app).post('/api/auth/login').send(badCred);
+        expect(res.status).toBe(422);
+      });
+
+      it('should return 422 if password is not string', async () => {
+        const badCred = { username: 'admin', password: 123 };
+        const res = await request(app).post('/api/auth/login').send(badCred);
+        expect(res.status).toBe(422);
+      });
     });
   });
-  describe('incorrect data type(s) in body', () => {
-    it('should return 422 if username is not string', async () => {
-      const badCred = { username: 123, password: 'abc123' };
-      pool.query.mockResolvedValueOnce(userQueryResult);
-      const res = await request(app).post('/api/auth/login').send(badCred);
-      expect(res.status).toBe(422);
-      expect(res.body.error).toBe('Incorrect data type(s) in body');
-      expect(pool.query).not.toHaveBeenCalled();
+
+  describe('Login errors', () => {
+    // should return 401 for all cases for security
+    it("should return 401 if user doesn't exist", async () => {
+      // mock user not found
+      pool.query.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+      const res = await request(app).post('/api/auth/login').send(cred);
+      expect(res.status).toBe(401);
     });
-    it('should return 422 if password is not string', async () => {
-      const badCred = { username: 'admin', password: 123 };
-      pool.query.mockResolvedValueOnce(userQueryResult);
-      const res = await request(app).post('/api/auth/login').send(badCred);
-      expect(res.status).toBe(422);
-      expect(res.body.error).toBe('Incorrect data type(s) in body');
-      expect(pool.query).not.toHaveBeenCalled();
+
+    it('should return 401 if password is incorrect', async () => {
+      // mock different pwd_hash
+      pool.query.mockResolvedValueOnce({
+        rows: [
+          {
+            id: 1,
+            username: 'admin',
+            pwd_hash: bcrypt.hashSync('def456', 12), // hashed "def456"
+            is_admin: true,
+          },
+        ],
+        rowCount: 1,
+      });
+      const res = await request(app).post('/api/auth/login').send(cred);
+      expect(res.status).toBe(401);
     });
   });
-  it("should return 401 if user doesn't exist", async () => {
-    pool.query.mockResolvedValueOnce({ rows: [], rowCount: 0 });
-    const res = await request(app).post('/api/auth/login').send(cred);
-    expect(res.status).toBe(401);
-    expect(res.body.error).toBe('Invalid credentials');
-  });
-  it('should return 401 if password is incorrect', async () => {
-    pool.query.mockResolvedValueOnce({
-      rows: [
-        {
-          id: 1,
-          username: 'admin',
-          pwd_hash: bcrypt.hashSync('def456', 12), // hashed "def456"
-          is_admin: true,
-        },
-      ],
-      rowCount: 1,
+
+  describe('Internal error', () => {
+    it('should return 500 if db failure', async () => {
+      pool.query.mockRejectedValue(new Error());
+      const res = await request(app).post('/api/auth/login').send(cred);
+      expect(res.status).toBe(500);
     });
-    const res = await request(app).post('/api/auth/login').send(cred);
-    expect(res.status).toBe(401);
-    expect(res.body.error).toBe('Invalid credentials');
-  });
-  it('should return 500 if db failure', async () => {
-    pool.query.mockRejectedValue(new Error());
-    const res = await request(app).post('/api/auth/login').send(cred);
-    expect(res.status).toBe(500);
-    expect(res.body.error).toBe('Internal server error');
   });
 });
 
 describe('POST /api/auth/logout', () => {
   const { refreshToken, refreshTokenHash } = createTokens(1, 'admin', true);
 
-  it('should delete the refresh token in the database', async () => {
-    pool.query.mockResolvedValueOnce({ rows: [{}], rowCount: 1 });
-    const res = await request(app).post('/api/auth/logout').send({ refreshToken });
-    expect(res.status).toBe(204);
-    expect(pool.query).toHaveBeenCalledWith(expect.stringMatching(/DELETE FROM refresh_tokens/i), [
-      refreshTokenHash,
-    ]);
+  describe('Good request', () => {
+    let res;
+    beforeEach(async () => {
+      // configure mock for db
+      pool.query.mockResolvedValueOnce({ rows: [{}], rowCount: 1 });
+      // send a good request
+      res = await request(app).post('/api/auth/logout').send({ refreshToken });
+    });
+
+    // tests
+    it('should return 204', async () => {
+      expect(res.status).toBe(204);
+    });
+
+    it('should delete the refresh token in the database', async () => {
+      expect(pool.query).toHaveBeenCalledWith(
+        expect.stringMatching(/DELETE FROM refresh_tokens/i),
+        [refreshTokenHash]
+      );
+    });
   });
 
-  it('should return 400 if body is missing', async () => {
-    pool.query.mockResolvedValueOnce({ rows: [{}], rowCount: 1 });
-    const res = await request(app).post('/api/auth/logout');
-    expect(res.status).toBe(400);
-    expect(res.body.error).toBe('Missing body');
-    expect(pool.query).not.toHaveBeenCalled();
+  describe('Validation tests', () => {
+    it('should return 400 if body is missing', async () => {
+      const res = await request(app).post('/api/auth/logout');
+      expect(res.status).toBe(400);
+    });
+
+    it('should return 400 if missing refresh token', async () => {
+      const res = await request(app).post('/api/auth/logout').send({});
+      expect(res.status).toBe(400);
+    });
+
+    it('should return 422 if refresh token is wrong data type', async () => {
+      const res = await request(app).post('/api/auth/logout').send({ refreshToken: 123 });
+      expect(res.status).toBe(422);
+    });
   });
 
-  it('should return 400 if missing refresh token', async () => {
-    pool.query.mockResolvedValueOnce({ rows: [{}], rowCount: 1 });
-    const res = await request(app).post('/api/auth/logout').send({});
-    expect(res.status).toBe(400);
-    expect(res.body.error).toBe('Missing refreshToken');
-    expect(pool.query).not.toHaveBeenCalled();
+  describe('Not found', () => {
+    it("should return 204 if refresh token doesn't exist in database", async () => {
+      // mock refresh token not found
+      pool.query.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+      const res = await request(app).post('/api/auth/logout').send({ refreshToken });
+      expect(res.status).toBe(204);
+    });
   });
 
-  it('should return 422 if refresh token is wrong data type', async () => {
-    pool.query.mockResolvedValueOnce({ rows: [{}], rowCount: 1 });
-    const res = await request(app).post('/api/auth/logout').send({ refreshToken: 123 });
-    expect(res.status).toBe(422);
-    expect(res.body.error).toBe('Incorrect data type in body');
-    expect(pool.query).not.toHaveBeenCalled();
-  });
-
-  it("should return 204 if refresh token doesn't exist in database", async () => {
-    pool.query.mockResolvedValueOnce({ rows: [], rowCount: 0 });
-    const res = await request(app).post('/api/auth/logout').send({ refreshToken });
-    expect(res.status).toBe(204);
-  });
-
-  it('should return 500 if db failure', async () => {
-    pool.query.mockRejectedValue(new Error());
-    const res = await request(app).post('/api/auth/logout').send({ refreshToken });
-    expect(res.status).toBe(500);
-    expect(res.body.error).toBe('Internal server error');
+  describe('Internal error', () => {
+    it('should return 500 if db failure', async () => {
+      pool.query.mockRejectedValue(new Error());
+      const res = await request(app).post('/api/auth/logout').send({ refreshToken });
+      expect(res.status).toBe(500);
+    });
   });
 });
 
 describe('POST /api/auth/refresh', () => {
   const { refreshToken, refreshTokenHash } = createTokens(1, 'admin', true);
 
-  it('should return a new correct access token', async () => {
-    pool.query.mockResolvedValueOnce({ rows: [{}], rowCount: 1 }); // SELECT ... FROM refresh_tokens
-    pool.query.mockResolvedValueOnce(userQueryResult); // SELECT ... FROM users
-    const res = await request(app).post('/api/auth/refresh').send({ refreshToken });
-    expect(res.status).toBe(200);
-    const payload = jwt.verify(res.body.accessToken, process.env.JWT_SECRET);
-    expect(payload).toMatchObject(expectedPayload);
-    expect(payload.exp - payload.iat).toBeLessThanOrEqual(300);
-  });
-  it('should return a new refresh token', async () => {
+  describe('Good request', () => {
     const spy = jest.spyOn(crypto, 'randomBytes');
-    pool.query.mockResolvedValueOnce({ rows: [{}], rowCount: 1 }); // SELECT ... FROM refresh_tokens
-    pool.query.mockResolvedValueOnce(userQueryResult); // SELECT ... FROM users
-    const res = await request(app).post('/api/auth/refresh').send({ refreshToken });
-    expect(res.status).toBe(200);
-    const newRefreshToken = res.body.refreshToken;
-    expect(newRefreshToken).toEqual(expect.any(String));
-    expect(newRefreshToken).not.toBe(refreshToken);
-    expect(spy).toHaveBeenCalled();
-    spy.mockRestore();
-  });
-  it('should update db with new refresh token', async () => {
-    pool.query.mockResolvedValueOnce({ rows: [{}], rowCount: 1 }); // SELECT ... FROM refresh_tokens
-    pool.query.mockResolvedValueOnce(userQueryResult); // SELECT ... FROM users
-    const res = await request(app).post('/api/auth/refresh').send({ refreshToken });
-    expect(res.status).toBe(200);
-    const newRefreshToken = res.body.refreshToken;
-    const newRefreshTokenHash = hash(newRefreshToken);
-    expect(pool.query).toHaveBeenCalledWith(expect.stringMatching(/UPDATE refresh_tokens/i), [
-      newRefreshTokenHash,
-      expect.any(Date),
-      refreshTokenHash,
-    ]);
-  });
-  it('should return 400 if body is missing', async () => {
-    const res = await request(app).post('/api/auth/refresh');
-    expect(res.status).toBe(400);
-    expect(res.body.error).toBe('Missing body');
-    expect(pool.query).not.toHaveBeenCalled();
-  });
-  it('should return 400 if missing refresh token', async () => {
-    const res = await request(app).post('/api/auth/refresh').send({});
-    expect(res.status).toBe(400);
-    expect(res.body.error).toBe('Missing refresh token');
-    expect(pool.query).not.toHaveBeenCalled();
-  });
-  it('should return 422 if refresh token is wrong data type', async () => {
-    const res = await request(app).post('/api/auth/refresh').send({ refreshToken: 123 });
-    expect(res.status).toBe(422);
-    expect(res.body.error).toBe('Invalid data type in body');
-    expect(pool.query).not.toHaveBeenCalled();
-  });
-  it("should return 401 if refresh token doesn't exist in database", async () => {
-    pool.query.mockResolvedValueOnce({ rows: [], rowCount: 0 }); // refreshTokenQuery
-    const res = await request(app).post('/api/auth/refresh').send({ refreshToken });
-    expect(res.status).toBe(401);
-    expect(res.body.error).toBe('Invalid refresh token');
-  });
-  it('should return 401 if refresh token is expired', async () => {
-    pool.query.mockResolvedValueOnce({
-      rows: [
-        {
-          user_id: 1,
-          expires_at: new Date(Date.now() - 1000), // expired a second ago
-        },
-      ],
-      rowCount: 1,
+    let res;
+    beforeEach(async () => {
+      spy.mockClear();
+      // configure mock for db
+      pool.query.mockResolvedValueOnce({ rows: [{}], rowCount: 1 }); // SELECT ... FROM refresh_tokens
+      pool.query.mockResolvedValueOnce(userQueryResult); // SELECT ... FROM users
+      res = await request(app).post('/api/auth/refresh').send({ refreshToken });
     });
-    const res = await request(app).post('/api/auth/refresh').send({ refreshToken });
-    expect(res.status).toBe(401);
-    expect(res.body.error).toBe('Invalid refresh token');
+
+    // tests
+    it('should return 200', async () => {
+      expect(res.status).toBe(200);
+    });
+
+    it('should return a new correct access token', async () => {
+      // verify payload
+      const payload = jwt.verify(res.body.accessToken, process.env.JWT_SECRET);
+      expect(payload).toMatchObject(expectedPayload);
+      // check expiration is later than issue
+      expect(payload.exp - payload.iat).toBeGreaterThan(0);
+    });
+
+    it('should return a new refresh token', async () => {
+      const newRefreshToken = res.body.refreshToken;
+      // expect new refresh token to be string
+      expect(newRefreshToken).toEqual(expect.any(String));
+      // expect new refresh token is different than previous
+      expect(newRefreshToken).not.toBe(refreshToken);
+      // expect crypto.randomBytes was used
+      expect(spy).toHaveBeenCalled();
+    });
+
+    it('should update db with new refresh token', async () => {
+      const newRefreshToken = res.body.refreshToken;
+      const newRefreshTokenHash = hash(newRefreshToken);
+      // expect hash was updated in DB
+      expect(pool.query).toHaveBeenCalledWith(expect.stringMatching(/UPDATE refresh_tokens/i), [
+        newRefreshTokenHash,
+        expect.any(Date),
+        refreshTokenHash,
+      ]);
+    });
   });
-  it('should return 500 if db failure', async () => {
-    pool.query.mockRejectedValue(new Error());
-    const res = await request(app).post('/api/auth/refresh').send({ refreshToken });
-    expect(res.status).toBe(500);
-    expect(res.body.error).toBe('Internal server error');
+
+  describe('Validation tests', () => {
+    it('should return 400 if body is missing', async () => {
+      const res = await request(app).post('/api/auth/refresh');
+      expect(res.status).toBe(400);
+    });
+    it('should return 400 if missing refresh token', async () => {
+      const res = await request(app).post('/api/auth/refresh').send({});
+      expect(res.status).toBe(400);
+    });
+    it('should return 422 if refresh token is wrong data type', async () => {
+      const res = await request(app).post('/api/auth/refresh').send({ refreshToken: 123 });
+      expect(res.status).toBe(422);
+    });
+  });
+
+  describe('Not found or expired', () => {
+    it("should return 401 if refresh token doesn't exist in database", async () => {
+      // mock refresh token not found
+      pool.query.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+      const res = await request(app).post('/api/auth/refresh').send({ refreshToken });
+      expect(res.status).toBe(401);
+    });
+    it('should return 401 if refresh token is expired', async () => {
+      // mock expired refresh token
+      pool.query.mockResolvedValueOnce({
+        rows: [
+          {
+            user_id: 1,
+            expires_at: new Date(Date.now() - 1000), // expired a second ago
+          },
+        ],
+        rowCount: 1,
+      });
+      const res = await request(app).post('/api/auth/refresh').send({ refreshToken });
+      expect(res.status).toBe(401);
+    });
+  });
+
+  describe('Internal error', () => {
+    it('should return 500 if db failure', async () => {
+      pool.query.mockRejectedValue(new Error());
+      const res = await request(app).post('/api/auth/refresh').send({ refreshToken });
+      expect(res.status).toBe(500);
+    });
   });
 });

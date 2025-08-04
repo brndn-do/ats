@@ -12,8 +12,8 @@ beforeAll(async () => {
 });
 
 // close DB pool and S3 client
-afterAll(() => {
-  pool.end();
+afterAll(async () => {
+  await pool.end();
   client.destroy();
 });
 

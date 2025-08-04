@@ -11,6 +11,7 @@ function hash(input) {
   if (typeof input !== 'string') {
     throw new Error('Input is not a string');
   }
+
   return crypto.createHash('sha256').update(input).digest('hex');
 }
 

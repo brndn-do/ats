@@ -9,6 +9,7 @@ import { uploadResume, downloadResume, deleteResume } from './services/s3.js';
 import bcrypt from 'bcrypt';
 import hash from './utils/hash.js';
 import createTokens from './utils/createTokens.js';
+import logger from './utils/logger.js';
 
 const app = express();
 app.use(express.json());
@@ -19,8 +20,8 @@ const upload = multer({ storage: multer.memoryStorage() });
  * GET /
  * Returns a status check.
  */
-app.get('/', (req, res) => {
-  res.json({ status: 'ok', message: 'ATS API' });
+app.get('/', (_req, res) => {
+  res.json({ message: 'ATS API' });
 });
 
 /**
@@ -230,13 +231,14 @@ app.post('/api/resumes', upload.single('resume'), async (req, res, next) => {
       INSERT INTO resumes
       (original_filename, object_key)
       VALUES ($1, $2)
-      RETURNING *
+      RETURNING id
     `;
     const params = [req.file.originalname, sResult.objectKey];
     const dbResult = await queryWithRetry(query, params);
+    const resumeId = dbResult.rows[0].id;
 
     // return resume ID
-    return res.status(201).json({ resumeId: dbResult.rows[0].id });
+    return res.status(201).json({ resumeId });
   } catch (err) {
     return next(err);
   }
@@ -295,10 +297,11 @@ app.delete('/api/resumes/:id', async (req, res, next) => {
   }
   // accept request
   try {
-    // get object key from DB
+    // delete resume from DB while getting object_key
     const query = `
-      SELECT object_key from resumes
+      DELETE from resumes
       WHERE id = $1
+      RETURNING object_key
     `;
     const params = [resumeId];
     const dbResult = await queryWithRetry(query, params);
@@ -308,9 +311,6 @@ app.delete('/api/resumes/:id', async (req, res, next) => {
     const objectKey = dbResult.rows[0].object_key;
     // delete from S3
     await deleteResume(objectKey);
-    // delete from DB
-    const deleteQuery = `DELETE FROM resumes WHERE id = $1`;
-    await queryWithRetry(deleteQuery, params);
 
     // no content to return
     return res.status(204).send();
@@ -367,7 +367,7 @@ app.post('/api/jobs', async (req, res, next) => {
  * GET /api/jobs
  * Gets all jobs and their data.
  */
-app.get('/api/jobs', async (req, res, next) => {
+app.get('/api/jobs', async (_req, res, next) => {
   try {
     const query = 'SELECT * FROM jobs;';
     const result = await queryWithRetry(query);
@@ -421,7 +421,7 @@ app.get('/api/jobs/:id', async (req, res, next) => {
 app.delete('/api/jobs/:id', async (req, res, next) => {
   // input validation
   const jobId = parseInt(req.params.id);
-  if (isNaN(jobId)) {
+  if (isNaN(jobId) || !Number.isInteger(parseFloat(req.params.id))) {
     return res.status(400).json({ error: 'Invalid job ID' });
   }
   // accept request
@@ -589,7 +589,6 @@ app.delete('/api/applications/:id', async (req, res, next) => {
     // delete the application
     const query = `
       DELETE FROM applications WHERE id = $1
-      RETURNING *;
     `;
     const params = [applicationId];
     const result = await queryWithRetry(query, params);
@@ -605,8 +604,8 @@ app.delete('/api/applications/:id', async (req, res, next) => {
 });
 
 // Error handler middleware
-app.use((err, req, res, next) => {
-  console.error(err);
+app.use((err, _req, res, _next) => {
+  logger.error(err);
 
   return res.status(500).json({ error: 'Internal server error' });
 });

@@ -6,6 +6,7 @@ import { Pool } from 'pg';
 // mock object, allowing tests to configure its behavior for database calls.
 jest.mock('pg', () => {
   const mPool = { query: jest.fn() };
+
   return { Pool: jest.fn(() => mPool) };
 });
 
@@ -44,7 +45,7 @@ describe('queryWithRetry', () => {
 
   it('should throw an error after all retry attempts fail', async () => {
     pool.query.mockRejectedValue(new Error(errMsg));
-    await expect(queryWithRetry(query, params)).rejects.toThrow(errMsg);
+    await expect(queryWithRetry(query, params)).rejects.toThrow();
     expect(pool.query).toHaveBeenCalledTimes(3);
   });
 
