@@ -8,15 +8,14 @@ A full‑stack web application for posting jobs, accepting applications with ré
 
 This project is currently focused on the backend API. The front-end is not yet started.
 
-| Status      | Feature                                        |
-| :---------- | :--------------------------------------------- |
-| `✓ Done`    | Core API for managing jobs and applications.   |
-| `✓ Done`    | PDF résumé uploads to and downloads from S3.   |
-| `✓ Done`    | User authentication and authorization (JWT).   |
-| `✓ Done`    | Comprehensive testing suite.                   |
-| `- To Do`   | Automated résumé parsing and keyword matching. |
-| `- To Do`   | Front-end React UI.                            |
-| `- To Do`   | Containerization and deployment.               |
+| Status      | Feature                                                  |
+| :---------- | :---------------------------------------------           |
+| `✓ Done`    | Core API for managing jobs, applications, and resumes.   |
+| `✓ Done`    | User authentication                                      |
+| `✓ Done`    | User authorization                                       |
+| `- To Do`   | Automated résumé parsing and keyword matching.           |
+| `- To Do`   | Front-end React UI.                                      |
+| `- To Do`   | Containerization and deployment.                         |
 
 ### Planned Improvements
 
