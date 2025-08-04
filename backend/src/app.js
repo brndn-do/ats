@@ -16,6 +16,8 @@ app.use(express.json());
 
 const upload = multer({ storage: multer.memoryStorage() });
 
+const REFRESH_TOKEN_EXPIRY = 30 * 24 * 60 * 60 * 1000; // 30 days
+
 /**
  * GET /
  * Returns a status check.
@@ -83,7 +85,7 @@ app.post('/api/auth/login', async (req, res, next) => {
     const insertParams = [
       userData.id,
       refreshTokenHash,
-      new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+      new Date(Date.now() + REFRESH_TOKEN_EXPIRY), // 30 days
     ];
     await queryWithRetry(insertQuery, insertParams);
 

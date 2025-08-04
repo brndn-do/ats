@@ -5,6 +5,9 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// expires in 5 minutes
+const EXPIRES_IN = '5m';
+
 /**
  *
  * @param {number} id - The user's ID in the database.
@@ -24,7 +27,7 @@ dotenv.config();
  * //   refreshTokenHash: "a3e1e99..."
  * // }
  */
-export default function createTokens(id, username, isAdmin) {
+export default function createTokens(id, username, isAdmin, expiresIn = EXPIRES_IN) {
   if (typeof id !== 'number' || typeof username !== 'string' || typeof isAdmin !== 'boolean') {
     throw new Error('Invalid arguments');
   }
@@ -36,9 +39,7 @@ export default function createTokens(id, username, isAdmin) {
   };
 
   // Create access token
-  const accessToken = jwt.sign(payload, process.env.JWT_SECRET, {
-    expiresIn: '5m',
-  });
+  const accessToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn });
 
   // Create refresh token
   const refreshToken = crypto.randomBytes(32).toString('hex');
