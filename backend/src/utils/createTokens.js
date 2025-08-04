@@ -1,9 +1,12 @@
-import dotenv from "dotenv";
+import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
+import hash from './hash.js';
+import dotenv from 'dotenv';
+
 dotenv.config();
 
-import jwt from "jsonwebtoken";
-import crypto from "crypto";
-import hash from "./hash.js";
+// expires in 5 minutes
+const EXPIRES_IN = '5m';
 
 /**
  *
@@ -24,13 +27,10 @@ import hash from "./hash.js";
  * //   refreshTokenHash: "a3e1e99..."
  * // }
  */
-export default function createTokens(id, username, isAdmin) {
-  if (
-    typeof id !== "number" ||
-    typeof username !== "string" ||
-    typeof isAdmin !== "boolean"
-  )
-    throw new Error("Invalid arguments");
+export default function createTokens(id, username, isAdmin, expiresIn = EXPIRES_IN) {
+  if (typeof id !== 'number' || typeof username !== 'string' || typeof isAdmin !== 'boolean') {
+    throw new Error('Invalid arguments');
+  }
 
   const payload = {
     sub: id,
@@ -39,12 +39,10 @@ export default function createTokens(id, username, isAdmin) {
   };
 
   // Create access token
-  const accessToken = jwt.sign(payload, process.env.JWT_SECRET, {
-    expiresIn: "5m",
-  });
+  const accessToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn });
 
   // Create refresh token
-  const refreshToken = crypto.randomBytes(32).toString("hex");
+  const refreshToken = crypto.randomBytes(32).toString('hex');
   const refreshTokenHash = hash(refreshToken);
 
   return { accessToken, refreshToken, refreshTokenHash };

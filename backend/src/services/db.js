@@ -1,8 +1,9 @@
-import dotenv from "dotenv";
-dotenv.config();
+import dotenv from 'dotenv';
+import logger from '../utils/logger';
+import pkg from 'pg';
 
-import pkg from "pg";
 const { Pool } = pkg;
+dotenv.config();
 
 const pool = new Pool({
   user: process.env.DB_USER,
@@ -15,24 +16,36 @@ const pool = new Pool({
   },
 });
 
-// Given a SQL query and parameters, executes the query with retries
-// Input: query, params, optional retry count, optional delay
-// Returns the result object returned by .query(...)
-async function queryWithRetry(query, params = [], retries = 3, delay = 100) {
-  for (let attempt = 0; attempt < retries; attempt++) {
+const DELAY = 10;
+
+/**
+ * Executes a SQL query, retrying on failure.
+ *
+ * @param {string} query - The SQL query to execute.
+ * @param {list} [params=[]] - The parameters to use.
+ * @param {number} [attempts=3] - The maximum number of attempts.
+ * @param {number} [delay=DELAY] - The delay in milliseconds between attempts.
+ * @returns {Promise<*>} the result of the query
+ * @throws Will throw an error if all attempts fail.
+ */
+async function queryWithRetry(query, params = [], attempts = 3, delay = DELAY) {
+  for (let attempt = 0; attempt < attempts; attempt++) {
     try {
-      console.log(`Querying... attempt ${attempt + 1} of ${retries}`);
+      // eslint-disable-next-line no-await-in-loop
       const result = await pool.query(query, params);
-      console.log("Query succeeded!");
+
       return result;
     } catch (err) {
-      if (attempt === retries - 1) {
-        throw err;
+      logger.error(err);
+      if (attempt === attempts - 1) {
+        break;
       }
-      console.log(`Retrying... Attempt ${attempt + 1} of ${retries}`);
+      logger.info(`Retrying... attempt ${attempt + 2} of ${attempts}`);
+      // eslint-disable-next-line no-await-in-loop
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
+  throw new Error('Query failed after all attempts');
 }
 
 export default queryWithRetry;
