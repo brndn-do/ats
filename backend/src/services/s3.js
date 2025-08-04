@@ -38,12 +38,22 @@ if (process.env.NODE_ENV === 'test') {
   });
 }
 
-async function emptyBucket(retries = 3, delay = DELAY) {
+/**
+ * Empties the contents of an S3 bucket, retrying on failure.
+ *
+ * Only allowed in the 'test' environment.
+ *
+ * @param {number} [attempts=3] - The maximum number of attempts.
+ * @param {number} [delay=DELAY] - The delay in milliseconds between attempts.
+ * @returns {Promise<void>}
+ * @throws Will throw an error if all attempts fail or not in a test environment.
+ */
+async function emptyBucket(attempts = 3, delay = DELAY) {
   if (process.env.NODE_ENV !== 'test') {
     throw new Error('Cannot empty bucket outside of testing');
   }
 
-  for (let attempt = 0; attempt < retries; attempt++) {
+  for (let attempt = 0; attempt < attempts; attempt++) {
     try {
       const listParams = { Bucket: process.env.S3_BUCKET_NAME };
       // eslint-disable-next-line no-await-in-loop
@@ -65,21 +75,27 @@ async function emptyBucket(retries = 3, delay = DELAY) {
       return;
     } catch (err) {
       logger.error(err);
-      if (attempt === retries - 1) {
+      if (attempt === attempts - 1) {
         break;
       }
-      logger.info(`Retrying... attempt ${attempt + 2} of ${retries}`);
+      logger.info(`Retrying... attempt ${attempt + 2} of ${attempts}`);
       // eslint-disable-next-line no-await-in-loop
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
-  throw new Error('Empty bucket failed after all retries');
+  throw new Error('Empty bucket failed after all attempts');
 }
 
-// Given a PDF buffer, uploads the PDF to S3 bucket, generating a unique object key
-// Input: PDF buffer, optional retry count, optional delay
-// Returns an object containing the generated uuid object key
-async function uploadResume(buffer, retries = 3, delay = DELAY) {
+/**
+ * Uploads a PDF file to an S3 bucket with a unique UUID-based object key.
+ *
+ * @param {Buffer} buffer - The PDF file buffer to upload.
+ * @param {number} [attempts=3] - The maximum number of attempts.
+ * @param {number} [delay=DELAY] - Delay in milliseconds between attempts.
+ * @returns {Promise<{ objectKey: string }>} An object containing the generated S3 object key.
+ * @throws Will throw an error if all attempts fail.
+ */
+async function uploadResume(buffer, attempts = 3, delay = DELAY) {
   const id = uuidv4();
   const objectKey = `${id}.pdf`;
   const params = {
@@ -90,7 +106,7 @@ async function uploadResume(buffer, retries = 3, delay = DELAY) {
     ContentDisposition: 'inline',
     ACL: 'private',
   };
-  for (let attempt = 0; attempt < retries; attempt++) {
+  for (let attempt = 0; attempt < attempts; attempt++) {
     try {
       const command = new PutObjectCommand(params);
       // eslint-disable-next-line no-await-in-loop
@@ -99,26 +115,32 @@ async function uploadResume(buffer, retries = 3, delay = DELAY) {
       return { objectKey };
     } catch (err) {
       logger.error(err);
-      if (attempt === retries - 1) {
+      if (attempt === attempts - 1) {
         break;
       }
-      logger.info(`Retrying... attempt ${attempt + 2} of ${retries}`);
+      logger.info(`Retrying... attempt ${attempt + 2} of ${attempts}`);
       // eslint-disable-next-line no-await-in-loop
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
-  throw new Error('Upload resume failed after all retries');
+  throw new Error('Upload resume failed after all attempts');
 }
 
-// Given an S3 object key, gets the file stream from S3
-// Input: object key, optional retry count, optional delay
-// Returns the result object returned from .send(new GetObjectCommand(...))
-async function downloadResume(objectKey, retries = 3, delay = DELAY) {
+/**
+ * Downloads a file stream from an S3 bucket using the given object key.
+ *
+ * @param {string} objectKey - The S3 object key of the file to download.
+ * @param {number} [attempts=3] - The maximum number of attempts.
+ * @param {number} [delay=DELAY] - Delay in milliseconds between attempts.
+ * @returns {Promise<import('@aws-sdk/client-s3').GetObjectCommandOutput>} The result from the S3 GetObjectCommand.
+ * @throws Will throw an error if all attempts fail.
+ */
+async function downloadResume(objectKey, attempts = 3, delay = DELAY) {
   const params = {
     Bucket: process.env.S3_BUCKET_NAME,
     Key: objectKey,
   };
-  for (let attempt = 0; attempt < retries; attempt++) {
+  for (let attempt = 0; attempt < attempts; attempt++) {
     try {
       const command = new GetObjectCommand(params);
       // eslint-disable-next-line no-await-in-loop
@@ -127,26 +149,32 @@ async function downloadResume(objectKey, retries = 3, delay = DELAY) {
       return result;
     } catch (err) {
       logger.error(err);
-      if (attempt === retries - 1) {
+      if (attempt === attempts - 1) {
         break;
       }
-      logger.info(`Retrying... attempt ${attempt + 2} of ${retries}`);
+      logger.info(`Retrying... attempt ${attempt + 2} of ${attempts}`);
       // eslint-disable-next-line no-await-in-loop
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
-  throw new Error('Download resume failed after all retries');
+  throw new Error('Download resume failed after all attempts');
 }
 
-// Given an S3 object key, deletes the object from S3 bucket
-// Input: object key, optional retry count, optional delay
-// Returns void
-async function deleteResume(objectKey, retries = 3, delay = DELAY) {
+/**
+ * Deletes a file from an S3 bucket using the provided object key.
+ *
+ * @param {string} objectKey - The S3 object key to delete.
+ * @param {number} [attempts=3] - The maximum number of attempts.
+ * @param {number} [delay=DELAY] - Delay in milliseconds between attempts.
+ * @returns {Promise<void>}
+ * @throws Will throw an error if all attempts fail.
+ */
+async function deleteResume(objectKey, attempts = 3, delay = DELAY) {
   const params = {
     Bucket: process.env.S3_BUCKET_NAME,
     Key: objectKey,
   };
-  for (let attempt = 0; attempt < retries; attempt++) {
+  for (let attempt = 0; attempt < attempts; attempt++) {
     try {
       const command = new DeleteObjectCommand(params);
       // eslint-disable-next-line no-await-in-loop
@@ -155,15 +183,15 @@ async function deleteResume(objectKey, retries = 3, delay = DELAY) {
       return;
     } catch (err) {
       logger.error(err);
-      if (attempt === retries - 1) {
+      if (attempt === attempts - 1) {
         break;
       }
-      logger.info(`Retrying... attempt ${attempt + 2} of ${retries}`);
+      logger.info(`Retrying... attempt ${attempt + 2} of ${attempts}`);
       // eslint-disable-next-line no-await-in-loop
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
-  throw new Error('Delete resume failed after all retries');
+  throw new Error('Delete resume failed after all attempts');
 }
 
 export { uploadResume, downloadResume, deleteResume, client, emptyBucket };

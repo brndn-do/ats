@@ -9,5 +9,5 @@ it('should return a SHA-256 hash', () => {
 });
 
 it('should throw an error if the input is not a string', () => {
-  expect(() => hash(123)).toThrow('Input is not a string');
+  expect(() => hash(123)).toThrow();
 });

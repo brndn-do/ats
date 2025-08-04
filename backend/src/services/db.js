@@ -18,11 +18,18 @@ const pool = new Pool({
 
 const DELAY = 10;
 
-// Given a SQL query and parameters, executes the query with retries
-// Input: query, params, optional retry count, optional delay
-// Returns the result object returned by .query(...)
-async function queryWithRetry(query, params = [], retries = 3, delay = DELAY) {
-  for (let attempt = 0; attempt < retries; attempt++) {
+/**
+ * Executes a SQL query, retrying on failure.
+ *
+ * @param {string} query - The SQL query to execute.
+ * @param {list} [params=[]] - The parameters to use.
+ * @param {number} [attempts=3] - The maximum number of attempts.
+ * @param {number} [delay=DELAY] - The delay in milliseconds between attempts.
+ * @returns {Promise<*>} the result of the query
+ * @throws Will throw an error if all attempts fail.
+ */
+async function queryWithRetry(query, params = [], attempts = 3, delay = DELAY) {
+  for (let attempt = 0; attempt < attempts; attempt++) {
     try {
       // eslint-disable-next-line no-await-in-loop
       const result = await pool.query(query, params);
@@ -30,15 +37,15 @@ async function queryWithRetry(query, params = [], retries = 3, delay = DELAY) {
       return result;
     } catch (err) {
       logger.error(err);
-      if (attempt === retries - 1) {
+      if (attempt === attempts - 1) {
         break;
       }
-      logger.info(`Retrying... attempt ${attempt + 2} of ${retries}`);
+      logger.info(`Retrying... attempt ${attempt + 2} of ${attempts}`);
       // eslint-disable-next-line no-await-in-loop
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
-  throw new Error('Query failed after all retries');
+  throw new Error('Query failed after all attempts');
 }
 
 export default queryWithRetry;
