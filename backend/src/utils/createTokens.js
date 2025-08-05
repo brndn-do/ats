@@ -1,9 +1,6 @@
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import hash from './hash.js';
-import dotenv from 'dotenv';
-
-dotenv.config();
 
 // expires in 5 minutes
 const EXPIRES_IN = '5m';

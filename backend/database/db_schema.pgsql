@@ -35,8 +35,13 @@ CREATE TABLE applications (
   UNIQUE(job_id, applicant_email)
 );
 
-INSERT INTO users (
-  username, email, pwd_hash, is_admin
-) VALUES (
-  'admin', 'ats@app.com', 'abc123', true
+-- Seed the database with a default admin user
+-- username: admin
+-- password: password
+INSERT INTO users (username, email, pwd_hash, is_admin)
+VALUES (
+  'admin',
+  'admin@example.com',
+  '$2b$12$Cl7VsBb.W1ZIm.67vhUckOjQyjNiy0NCo0CT9ApisBRH6Nl180LRq', -- bcrypt.hashSync('password', 12)
+  TRUE
 );

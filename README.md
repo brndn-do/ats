@@ -12,7 +12,7 @@ This project is currently focused on the backend API. The front-end is not yet s
 | :---------- | :---------------------------------------------           |
 | `✓ Done`    | Core API for managing jobs, applications, and resumes.   |
 | `✓ Done`    | User authentication                                      |
-| `✓ Done`    | User authorization                                       |
+| `- To Do`   | User authorization                                       |
 | `- To Do`   | Automated résumé parsing and keyword matching.           |
 | `- To Do`   | Front-end React UI.                                      |
 | `- To Do`   | Containerization and deployment.                         |
@@ -42,11 +42,12 @@ This project is currently focused on the backend API. The front-end is not yet s
 
 ## Testing
 
-This project uses a layered testing strategy to ensure correctness and maintainability. We have a solid foundation of **Unit** and **API** tests that mock external dependencies for speed and reliability.
+This project uses a layered testing strategy to ensure correctness and reliability.
 
-Work is in progress to build out the **Integration** and **End-to-End (E2E)** tests, which run against live services to verify real-world behavior.
+-   **Unit & API Tests:** These form the foundation of the test suite. They are fast, isolated, and mock external services for predictable results.
+-   **Integration & E2E Tests:** These tests run against live, containerized PostgreSQL and MinIO (S3) services to verify real-world behavior and interactions between components.
 
-For a detailed breakdown of the testing layers, mock strategies, and how to run specific test suites, please see the **[TESTING.md](backend/TESTING.md)** file.
+For more info on testing, please see the **[TESTING.md](backend/TESTING.md)** file.
 
 ---
 
@@ -57,8 +58,8 @@ backend/
 ├── __tests__/
 │   ├── api/          # API tests (mocking DB and S3)
 │   ├── e2e/          # End-to-end tests (live services)
-│   ├── fixtures/     # Test data (e.g., sample resumes)
-│   ├── integration/  # Integration tests (live DB, mock S3)
+│   ├── fixtures/     # Test data (e.g., sample resume)
+│   ├── integration/  # Integration tests (live services)
 │   └── unit/         # Unit tests (focused, no external services)
 ├── database/
 │   └── db_schema.pgsql # SQL schema for the database
@@ -73,54 +74,113 @@ backend/
 │   │   └── logger.js       # Logging utility
 │   ├── app.js        # Express application and routes
 │   └── server.js     # Server entry point
-├── .env.example      # Sample environment variables
+├── .env     # Sample environment variables
 ├── package.json
 └── ...
 ```
 
 ---
 
-## Getting Started
+## Getting Started
 
-### 1 · Clone & Install
+To get the application running, clone the repository, and use Docker Compose.
+
+### 1. Clone the Repository
 
 ```bash
 git clone https://github.com/brndn-do/ats.git
-cd ats/backend
-npm install
+cd ats
 ```
 
-### 2 · Set Environment Variables
+### 2. Set environment variables
+Generate a secret to use for JWT, using either OpenSSL:
+```bash
+openssl rand -hex 32
+```
 
-Copy the sample file and fill in your credentials for PostgreSQL and AWS S3.
+or Node with Crypto:
 
 ```bash
-cp .env.example .env
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+Then, copy the generated string and set it as your JWT_SECRET inside `.env.example`:
+```.env
+JWT_SECRET=REPLACE_WITH_YOUR_SECRET
+```
+Then, rename the file to .env:
+```bash
+mv .env.example .env
 ```
 
-### 3 · Create the Database Schema
+### 3. Build and Run
 
-Ensure your PostgreSQL server is running and you have created the database specified in your `.env` file.
+The following command will build the images and start the containers for the backend, database, and object storage:
 
 ```bash
-psql -U <your_db_user> -d <your_db_name> -f database/db_schema.pgsql
+docker-compose up -d
 ```
 
-### 4 · Run the Server
+### 4. Set Up Database and Storage
+
+Next, set up the databases and create the storage buckets. These only need to be run once.
 
 ```bash
-npm start
+# Load schema into dev DB
+docker-compose exec -T postgres psql -U postgres -d devdb < backend/database/db_schema.pgsql
+
+# Create test DB from the 'postgres' admin DB
+docker-compose exec -T postgres psql -U postgres -d postgres -c "CREATE DATABASE testdb"
+
+# Load schema into test DB
+docker-compose exec -T postgres psql -U postgres -d testdb < backend/database/db_schema.pgsql
+
+# Create MinIO alias and buckets
+docker-compose exec minio mc alias set minio http://localhost:9000 minioadmin minioadmin
+docker-compose exec minio mc mb minio/devbucket
+docker-compose exec minio mc mb minio/testbucket
 ```
 
-The API will start on `http://localhost:3000` by default.
+### 5. Development Workflow
 
-### 5 · Run Tests
+All development tasks, such as running tests, linting, or formatting code, should be executed inside the running `backend` container. This ensures a consistent and isolated environment.
+
+Start the services first:
 
 ```bash
-npm test
+docker-compose up -d
 ```
 
-See [TESTING.md](backend/TESTING.md) for more detailed testing commands.
+Then, use `docker-compose exec` to run scripts inside the `backend` container. Using the `-t` flag provides a colorized output.
+
+```bash
+# Run all tests
+docker-compose exec -t backend npm test
+
+# Lint the codebase
+docker-compose exec -t backend npm run lint
+
+# Format the codebase
+docker-compose exec -t backend npm run format
+```
+
+To open an interactive shell inside the container, run:
+
+```bash
+docker-compose exec -it backend sh
+```
+
+To exit the shell, run:
+```bash
+exit
+```
+
+### 6. Teardown
+
+To stop the containers, run:
+
+```bash
+docker-compose down
+```
 
 ---
 

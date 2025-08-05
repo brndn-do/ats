@@ -1,20 +1,33 @@
-import dotenv from 'dotenv';
-import logger from '../utils/logger';
+import logger from '../utils/logger.js';
 import pkg from 'pg';
 
 const { Pool } = pkg;
-dotenv.config();
 
-const pool = new Pool({
+const poolConfig = {
   user: process.env.DB_USER,
   host: process.env.DB_HOST,
-  database: process.env.DB_NAME,
   password: process.env.DB_PASSWORD,
   port: process.env.DB_PORT,
-  ssl: {
-    rejectUnauthorized: false,
-  },
-});
+};
+
+switch (process.env.NODE_ENV) {
+  case 'dev':
+    logger.info('POSTGRES: connecting to dev DB');
+    poolConfig.database = process.env.DEV_DB_NAME;
+    break;
+  case 'test':
+    logger.info('POSTGRES: connecting to test DB');
+    poolConfig.database = process.env.TEST_DB_NAME;
+    break;
+  default:
+    logger.info('POSTGRES: connecting to AWS DB');
+    poolConfig.database = process.env.DB_NAME;
+    // Only add SSL configuration when NOT in the dev/test environment
+    // Local Docker Postgres does not use SSL, but cloud services do
+    poolConfig.ssl = { rejectUnauthorized: false };
+}
+
+const pool = new Pool(poolConfig);
 
 const DELAY = 10;
 

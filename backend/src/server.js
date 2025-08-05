@@ -1,3 +1,5 @@
+import 'dotenv/config';
+
 import app from './app.js';
 import { pool } from './services/db.js';
 import { client } from './services/s3.js';
