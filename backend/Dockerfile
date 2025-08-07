@@ -1,7 +1,7 @@
 # Builds the image for the backend API
 
 # Start with base image
-FROM node:20-alpine
+FROM node:20-slim
 
 # Set the working directory in the container
 WORKDIR /app
