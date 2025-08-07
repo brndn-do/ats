@@ -88,7 +88,7 @@ backend/
 - [Docker & Docker Compose](https://docs.docker.com/get-docker/)
 - [OpenSSL](https://openssl.org) or [Node.js](https://nodejs.org/) (for generating secrets)
 
-## Getting Started
+### Getting Started
 
 To get the application running, follow these steps:
 
@@ -99,7 +99,26 @@ git clone https://github.com/brndn-do/ats.git
 cd ats
 ```
 
-### 2. Set environment variables
+### 2. (Optional) Install Dependencies Locally
+The backend’s dependencies will be installed inside the backend Docker container. You only need to install them locally if:
+- You want editor support for Prettier or ESLint
+- You want to run `npm run lint` or `npm run format` outside the container.
+```bash
+cd backend # move to backend
+npm install # optional install on host machine
+npm run format # format
+npm run lint # lint
+cd .. # move back to parent directory (where docker-compose.yml is)
+```
+Since `backend/node_modules/` is **not mounted**, and is ignored in `backend/.dockerignore`, installing packages on your host machine will **not affect** the container’s `node_modules/`.
+
+### 3. Set environment variables
+
+First, create a copy of the .env.template file:
+
+```bash
+cp .env.template .env
+```
 
 Generate a secret to use for JWT, using either OpenSSL:
 
@@ -113,19 +132,13 @@ or Node with Crypto:
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-Then, copy the generated string and set it as your JWT_SECRET inside `.env.template`:
+Then, copy the generated string and set it as your JWT_SECRET inside `.env`:
 
 ```.env
 JWT_SECRET=REPLACE_WITH_YOUR_SECRET
 ```
 
-Then, rename the file to .env:
-
-```bash
-mv .env.template .env
-```
-
-### 3. Build and Run
+### 4. Build and Run
 
 The following command will build the images and start the containers for the backend, database, and object storage:
 
@@ -141,7 +154,7 @@ docker-compose logs
 
 Note that the backend container depends on the Postgres and Minio containers. If you do not see any logs for the backend, wait and try running the command again.
 
-### 4. Set Up Database and Storage
+### 5. Set Up Database and Storage
 
 Next, set up the databases and create the storage buckets. These only need to be run once.
 
@@ -161,9 +174,9 @@ docker-compose exec minio mc mb minio/devbucket
 docker-compose exec minio mc mb minio/testbucket
 ```
 
-### 5. Development Workflow
+### 6. Running tests
 
-All development tasks, such as running tests, linting, or formatting code, should be executed inside the running `backend` container. This ensures a consistent and isolated environment.
+Tests should only be executed inside the running backend container. This ensures a consistent and isolated environment.
 
 If you haven't, start the services first:
 
@@ -171,32 +184,33 @@ If you haven't, start the services first:
 docker-compose up -d
 ```
 
-Then, use `docker-compose exec` to run scripts inside the `backend` container. Using the `-t` flag provides a colorized output.
+Then, use `docker-compose exec` to run tests inside the `backend` container.
 
 ```bash
 # Run all tests
-docker-compose exec -t backend npm run test:all
-
-# Lint the codebase
-docker-compose exec -t backend npm run lint
-
-# Format the codebase
-docker-compose exec -t backend npm run format
+docker-compose exec backend npm run test:all
 ```
 
 To open an interactive shell inside the container, run:
 
 ```bash
-docker-compose exec -it backend sh
+docker-compose exec backend bash
+```
+
+Then run tests as you would locally:
+
+```bash
+# Run only __tests__/api/jobs.test.js
+npm test -- __tests__/api/jobs.test.js
 ```
 
 To exit the shell, run:
 
-```sh
+```bash
 exit
 ```
 
-### 6. Teardown
+### 7. Teardown
 
 To stop the containers, run:
 
