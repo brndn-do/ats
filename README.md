@@ -144,7 +144,7 @@ docker-compose exec minio mc mb minio/testbucket
 
 All development tasks, such as running tests, linting, or formatting code, should be executed inside the running `backend` container. This ensures a consistent and isolated environment.
 
-Start the services first:
+If you haven't, start the services first:
 
 ```bash
 docker-compose up -d
