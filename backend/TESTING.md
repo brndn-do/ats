@@ -73,7 +73,7 @@ You can run a single test file or a specific suite using the scripts defined in 
 - **Run all tests with coverage:**
   - `npm run test:coverage`
 
-**Note on concurrency:** Integration and E2E tests run against `testdb` and `testbucket` and clear all data inside before running. Each script that runs any of these tests use the `--runInBand` flag to run each test sequentially, preventing race conditions. With this in mind, please use `npm run test:all` to run all tests and NOT `npm test` / `npm run test` in order to prevent integration and E2E tests from running in parallel.
+**Note on concurrency:** Integration and E2E tests run against `testdb` and `testbucket` and clear all data inside before running. Each script that runs any of these tests uses the `--runInBand` flag to run each test sequentially, preventing race conditions. With this in mind, please use `npm run test:all` to run all tests and NOT `npm test` / `npm run test` in order to prevent integration and E2E tests from running in parallel.
 
 ---
 
