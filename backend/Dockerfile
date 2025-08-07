@@ -1,12 +1,16 @@
-# Builds the image for the backend API
-
 # Start with base image
 FROM node:20-slim
 
 # Set the working directory in the container
-WORKDIR /app
+WORKDIR /backend
 
-# Copy package.json and package-lock.json.
+# Install bash
+RUN apt-get update && apt-get install -y bash && rm -rf /var/lib/apt/lists/*
+
+# Customize bash prompt
+RUN echo "export PS1='/backend \$ '" >> ~/.bashrc
+
+# Copy package.json and package-lock.json
 COPY package*.json ./
 
 # Install app dependencies
