@@ -9,7 +9,7 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 import logger from '../utils/logger.js';
 
-const DELAY = 10;
+const DELAY = process.env.NODE_ENV === 'test' ? 10 : 1000; // shorter delay for testing
 
 const clientConfig = {
   region: process.env.S3_REGION,

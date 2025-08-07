@@ -29,7 +29,7 @@ switch (process.env.NODE_ENV) {
 
 const pool = new Pool(poolConfig);
 
-const DELAY = 10;
+const DELAY = process.env.NODE_ENV === 'test' ? 10 : 1000; // shorter delay for testing
 
 /**
  * Executes a SQL query, retrying on failure.
