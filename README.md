@@ -191,7 +191,7 @@ docker-compose exec -it backend sh
 
 To exit the shell, run:
 
-```bash
+```sh
 exit
 ```
 
