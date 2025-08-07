@@ -8,14 +8,14 @@ A full‑stack web application for posting jobs, accepting applications with ré
 
 This project is currently focused on the backend API. The front-end is not yet started.
 
-| Status      | Feature                                                  |
-| :---------- | :---------------------------------------------           |
-| `✓ Done`    | Core API for managing jobs, applications, and resumes.   |
-| `✓ Done`    | User authentication                                      |
-| `- To Do`   | User authorization                                       |
-| `- To Do`   | Automated résumé parsing and keyword matching.           |
-| `- To Do`   | Front-end React UI.                                      |
-| `- To Do`   | Containerization and deployment.                         |
+| Status    | Feature                                                |
+| :-------- | :----------------------------------------------------- |
+| `✓ Done`  | Core API for managing jobs, applications, and resumes. |
+| `✓ Done`  | User authentication                                    |
+| `- To Do` | User authorization                                     |
+| `- To Do` | Automated résumé parsing and keyword matching.         |
+| `- To Do` | Front-end React UI.                                    |
+| `- To Do` | Containerization and deployment.                       |
 
 ### Planned Improvements
 
@@ -29,14 +29,15 @@ This project is currently focused on the backend API. The front-end is not yet s
 
 ## Tech Stack
 
-| Layer     | Technology                     |
-| --------- | ------------------------------ |
-| Back-end  | Node.js, Express.js            |
-| Database  | PostgreSQL (AWS RDS)           |
-| Storage   | AWS S3 (résumé PDFs)           |
-| Testing   | Jest, Supertest                |
-| Front-end | React, Vite (TBD)              |
-| Auth      | JSON Web Tokens + bcrypt       |
+| Layer     | Technology                      |
+| --------- | ------------------------------- |
+| Back-end  | Node.js, Express.js             |
+| Database  | PostgreSQL (AWS RDS)            |
+| Storage   | AWS S3 (prod), MinIO (dev/test) |
+| Testing   | Jest, Supertest                 |
+| Front-end | React, Vite (TBD)               |
+| Auth      | JSON Web Tokens + bcrypt        |
+| DevOps    | Docker, Docker Compose          |
 
 ---
 
@@ -44,8 +45,8 @@ This project is currently focused on the backend API. The front-end is not yet s
 
 This project uses a layered testing strategy to ensure correctness and reliability.
 
--   **Unit & API Tests:** These form the foundation of the test suite. They are fast, isolated, and mock external services for predictable results.
--   **Integration & E2E Tests:** These tests run against live, containerized PostgreSQL and MinIO (S3) services to verify real-world behavior and interactions between components.
+- **Unit & API Tests:** These form the foundation of the test suite. They are fast, isolated, and mock external services for predictable results.
+- **Integration & E2E Tests:** These tests run against live, containerized PostgreSQL and MinIO (S3) services to verify real-world behavior and interactions between components.
 
 For more info on testing, please see the **[TESTING.md](backend/TESTING.md)** file.
 
@@ -74,16 +75,21 @@ backend/
 │   │   └── logger.js       # Logging utility
 │   ├── app.js        # Express application and routes
 │   └── server.js     # Server entry point
-├── .env     # Sample environment variables
+├── .env.template     # Environment variables (template)
 ├── package.json
 └── ...
 ```
 
 ---
 
+### Prerequisites
+
+- [Docker & Docker Compose](https://docs.docker.com/get-docker/)
+- [OpenSSL](https://openssl.org) or [Node.js](https://nodejs.org/) (for generating secrets)
+
 ## Getting Started
 
-To get the application running, clone the repository, and use Docker Compose.
+To get the application running, follow these steps:
 
 ### 1. Clone the Repository
 
@@ -93,7 +99,9 @@ cd ats
 ```
 
 ### 2. Set environment variables
+
 Generate a secret to use for JWT, using either OpenSSL:
+
 ```bash
 openssl rand -hex 32
 ```
@@ -103,13 +111,17 @@ or Node with Crypto:
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
-Then, copy the generated string and set it as your JWT_SECRET inside `.env.example`:
+
+Then, copy the generated string and set it as your JWT_SECRET inside `.env.template`:
+
 ```.env
 JWT_SECRET=REPLACE_WITH_YOUR_SECRET
 ```
+
 Then, rename the file to .env:
+
 ```bash
-mv .env.example .env
+mv .env.template .env
 ```
 
 ### 3. Build and Run
@@ -119,6 +131,14 @@ The following command will build the images and start the containers for the bac
 ```bash
 docker-compose up -d
 ```
+
+Then, you can run the following command to check each container's logs:
+
+```bash
+docker-compose logs
+```
+
+Note that the backend container depends on the Postgres and Minio containers. If you do not see any logs for the backend, wait and try running the command again.
 
 ### 4. Set Up Database and Storage
 
@@ -170,6 +190,7 @@ docker-compose exec -it backend sh
 ```
 
 To exit the shell, run:
+
 ```bash
 exit
 ```
@@ -219,6 +240,5 @@ docker-compose down
 | POST   | `/api/resumes`     | Upload a new résumé PDF.                 |
 | GET    | `/api/resumes/:id` | **Admin** – Download a résumé by its ID. |
 | DELETE | `/api/resumes/:id` | **Admin** – Delete a résumé by its ID.   |
-
 
 > **HTTP 400** for malformed requests, **404** for not found, **422** for validation errors. **401/403** for authentication/authorization errors.
