@@ -19,11 +19,12 @@ This project is currently focused on the backend API. The front-end is not yet s
 
 ### Planned Improvements
 
-- [ ] Refactor database schema to use `GENERATED AS IDENTITY` instead of `SERIAL`.
-- [ ] Add request rate limiting and CORS configuration.
-- [ ] Implement comprehensive input validation with a library like `zod` or `Joi`.
-- [ ] Replace raw SQL with an ORM like Prisma or Drizzle.
-- [ ] Add a CI/CD workflow (e.g., GitHub Actions) for automated linting, testing, and deployment.
+- Refactor database schema (e.g. use `GENERATED AS IDENTITY` instead of `SERIAL`).
+- Implement comprehensive input validation with a library like `zod` or `Joi`.
+- Replace raw SQL with an ORM like Prisma or Drizzle.
+- Add more sophisticated error handling and specific error messages.
+- Add request rate limiting and CORS configuration.
+- Add a CI/CD workflow (e.g., GitHub Actions) for automated linting, testing, and deployment.
 
 ---
 
