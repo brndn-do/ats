@@ -174,7 +174,7 @@ Then, use `docker-compose exec` to run scripts inside the `backend` container. U
 
 ```bash
 # Run all tests
-docker-compose exec -t backend npm test
+docker-compose exec -t backend npm run test:all
 
 # Lint the codebase
 docker-compose exec -t backend npm run lint
