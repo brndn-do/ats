@@ -44,7 +44,9 @@ services:
       - '${BACKEND_PORT:-3000}:3000'
     volumes:
       - ./backend:/app
-      - /app/node_modules # anonymous volume
+      # anonymous volumes
+      - /app/node_modules 
+      - /app/coverage
     depends_on:
       postgres:
         condition: service_healthy
