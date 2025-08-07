@@ -180,7 +180,7 @@ describe('emptyBucket', () => {
 
     expect(ListObjectsV2Command).toHaveBeenCalled();
     expect(DeleteObjectsCommand).toHaveBeenCalledWith({
-      Bucket: process.env.S3_BUCKET_NAME,
+      Bucket: process.env.TEST_S3_BUCKET_NAME,
       Delete: {
         Objects: [{ Key: 'file1.pdf' }, { Key: 'file2.pdf' }],
       },
@@ -196,7 +196,7 @@ describe('emptyBucket', () => {
 
   it("should throw an error if NODE_ENV is not 'test'", async () => {
     const originalEnv = process.env.NODE_ENV;
-    process.env.NODE_ENV = 'development';
+    process.env.NODE_ENV = 'dev';
     await expect(emptyBucket()).rejects.toThrow('Cannot empty bucket outside of testing');
     process.env.NODE_ENV = originalEnv;
   });

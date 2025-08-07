@@ -4,24 +4,19 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "cross-env NODE_ENV=development nodemon server.js",
-
-    "format": "prettier --write \"**/*.js\"",
-    "lint": "eslint \"**/*.js\"",
-
+    "start": "node src/server.js",
+    "dev": "cross-env NODE_ENV=dev nodemon src/server.js",
     "test": "cross-env NODE_ENV=test jest",
-
-    "test:unit": "cross-env NODE_ENV=test jest -- __tests__/unit",
-    "test:api": "cross-env NODE_ENV=test jest -- __tests__/api",
-    "test:local": "cross-env NODE_ENV=test jest -- __tests__/api __tests__/unit",
- 
-    "test:integration": "cross-env NODE_ENV=test jest --runInBand -- __tests__/integration",
-    "test:e2e": "cross-env NODE_ENV=test jest --runInBand -- __tests__/e2e",
-    "test:remote": "cross-env NODE_ENV=test jest --runInBand -- __tests__/integration __tests__/e2e",
-    
-    "test:all": "cross-env NODE_ENV=test jest __tests__/unit __tests__/api && cross-env NODE_ENV=test jest --runInBand __tests__/integration __tests__/e2e",
-    "test:coverage": "cross-env NODE_ENV=test jest --coverage __tests__/unit __tests__/api && cross-env NODE_ENV=test jest --coverage --runInBand __tests__/integration __tests__/e2e"
+    "test:unit": "cross-env NODE_ENV=test jest __tests__/unit",
+    "test:api": "cross-env NODE_ENV=test jest __tests__/api",
+    "test:integration": "cross-env NODE_ENV=test jest --runInBand __tests__/integration",
+    "test:e2e": "cross-env NODE_ENV=test jest --runInBand __tests__/e2e",
+    "test:isolated": "cross-env NODE_ENV=test jest __tests__/api __tests__/unit",
+    "test:integrated": "cross-env NODE_ENV=test jest --runInBand __tests__/integration __tests__/e2e",
+    "test:all": "npm run test:isolated && npm run test:integrated",
+    "test:coverage": "cross-env NODE_ENV=test jest --runInBand --coverage",
+    "format": "prettier --write \"**/*.js\"",
+    "lint": "eslint \"**/*.js\""
   },
   "keywords": [],
   "author": "",
@@ -33,7 +28,7 @@
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
-    "multer": "^1.4.5-lts.2",
+    "multer": "^2.0.2",
     "pg": "^8.15.6",
     "uuid": "^11.1.0",
     "winston": "^3.17.0"
@@ -42,13 +37,14 @@
     "@babel/core": "^7.28.0",
     "@babel/preset-env": "^7.28.0",
     "@eslint/js": "^9.32.0",
-    "babel-jest": "^30.0.4",
+    "babel-jest": "^30.0.5",
     "cross-env": "^10.0.0",
+    "dotenv-cli": "^10.0.0",
     "eslint": "^9.32.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.3",
     "globals": "^16.3.0",
-    "jest": "^30.0.4",
+    "jest": "^30.0.5",
     "nodemon": "^3.1.10",
     "prettier": "^3.6.2",
     "supertest": "^7.1.3"

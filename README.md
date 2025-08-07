@@ -8,45 +8,48 @@ A full‑stack web application for posting jobs, accepting applications with ré
 
 This project is currently focused on the backend API. The front-end is not yet started.
 
-| Status      | Feature                                                  |
-| :---------- | :---------------------------------------------           |
-| `✓ Done`    | Core API for managing jobs, applications, and resumes.   |
-| `✓ Done`    | User authentication                                      |
-| `✓ Done`    | User authorization                                       |
-| `- To Do`   | Automated résumé parsing and keyword matching.           |
-| `- To Do`   | Front-end React UI.                                      |
-| `- To Do`   | Containerization and deployment.                         |
+| Status    | Feature                                                |
+| :-------- | :----------------------------------------------------- |
+| `✓ Done`  | Core API for managing jobs, applications, and resumes. |
+| `✓ Done`  | User authentication                                    |
+| `- To Do` | User authorization                                     |
+| `- To Do` | Automated résumé parsing and keyword matching.         |
+| `- To Do` | Front-end React UI.                                    |
+| `- To Do` | Containerization and deployment.                       |
 
 ### Planned Improvements
 
-- [ ] Refactor database schema to use `GENERATED AS IDENTITY` instead of `SERIAL`.
-- [ ] Add request rate limiting and CORS configuration.
-- [ ] Implement comprehensive input validation with a library like `zod` or `Joi`.
-- [ ] Replace raw SQL with an ORM like Prisma or Drizzle.
-- [ ] Add a CI/CD workflow (e.g., GitHub Actions) for automated linting, testing, and deployment.
+- Refactor database schema (e.g. use `GENERATED AS IDENTITY` instead of `SERIAL`).
+- Implement comprehensive input validation with a library like `zod` or `Joi`.
+- Replace raw SQL with an ORM like Prisma or Drizzle.
+- Add more sophisticated error handling and specific error messages.
+- Add request rate limiting and CORS configuration.
+- Add a CI/CD workflow (e.g., GitHub Actions) for automated linting, testing, and deployment.
 
 ---
 
 ## Tech Stack
 
-| Layer     | Technology                     |
-| --------- | ------------------------------ |
-| Back-end  | Node.js, Express.js            |
-| Database  | PostgreSQL (AWS RDS)           |
-| Storage   | AWS S3 (résumé PDFs)           |
-| Testing   | Jest, Supertest                |
-| Front-end | React, Vite (TBD)              |
-| Auth      | JSON Web Tokens + bcrypt       |
+| Layer     | Technology                      |
+| --------- | ------------------------------- |
+| Back-end  | Node.js, Express.js             |
+| Database  | PostgreSQL (AWS RDS)            |
+| Storage   | AWS S3 (prod), MinIO (dev/test) |
+| Testing   | Jest, Supertest                 |
+| Front-end | React, Vite (TBD)               |
+| Auth      | JSON Web Tokens + bcrypt        |
+| DevOps    | Docker, Docker Compose          |
 
 ---
 
 ## Testing
 
-This project uses a layered testing strategy to ensure correctness and maintainability. We have a solid foundation of **Unit** and **API** tests that mock external dependencies for speed and reliability.
+This project uses a layered testing strategy to ensure correctness and reliability.
 
-Work is in progress to build out the **Integration** and **End-to-End (E2E)** tests, which run against live services to verify real-world behavior.
+- **Unit & API Tests:** These form the foundation of the test suite. They are fast, isolated, and mock external services for predictable results.
+- **Integration & E2E Tests:** These tests run against live, containerized PostgreSQL and MinIO (S3) services to verify real-world behavior and interactions between components.
 
-For a detailed breakdown of the testing layers, mock strategies, and how to run specific test suites, please see the **[TESTING.md](backend/TESTING.md)** file.
+For more info on testing, please see the **[TESTING.md](backend/TESTING.md)** file.
 
 ---
 
@@ -57,8 +60,8 @@ backend/
 ├── __tests__/
 │   ├── api/          # API tests (mocking DB and S3)
 │   ├── e2e/          # End-to-end tests (live services)
-│   ├── fixtures/     # Test data (e.g., sample resumes)
-│   ├── integration/  # Integration tests (live DB, mock S3)
+│   ├── fixtures/     # Test data (e.g., sample resume)
+│   ├── integration/  # Integration tests (live services)
 │   └── unit/         # Unit tests (focused, no external services)
 ├── database/
 │   └── db_schema.pgsql # SQL schema for the database
@@ -73,54 +76,133 @@ backend/
 │   │   └── logger.js       # Logging utility
 │   ├── app.js        # Express application and routes
 │   └── server.js     # Server entry point
-├── .env.example      # Sample environment variables
+├── .env.template     # Environment variables (template)
 ├── package.json
 └── ...
 ```
 
 ---
 
-## Getting Started
+### Prerequisites
 
-### 1 · Clone & Install
+- [Docker & Docker Compose](https://docs.docker.com/get-docker/)
+- [OpenSSL](https://openssl.org) or [Node.js](https://nodejs.org/) (for generating secrets)
+
+## Getting Started
+
+To get the application running, follow these steps:
+
+### 1. Clone the Repository
 
 ```bash
 git clone https://github.com/brndn-do/ats.git
-cd ats/backend
-npm install
+cd ats
 ```
 
-### 2 · Set Environment Variables
+### 2. Set environment variables
 
-Copy the sample file and fill in your credentials for PostgreSQL and AWS S3.
+Generate a secret to use for JWT, using either OpenSSL:
 
 ```bash
-cp .env.example .env
+openssl rand -hex 32
 ```
 
-### 3 · Create the Database Schema
-
-Ensure your PostgreSQL server is running and you have created the database specified in your `.env` file.
+or Node with Crypto:
 
 ```bash
-psql -U <your_db_user> -d <your_db_name> -f database/db_schema.pgsql
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-### 4 · Run the Server
+Then, copy the generated string and set it as your JWT_SECRET inside `.env.template`:
+
+```.env
+JWT_SECRET=REPLACE_WITH_YOUR_SECRET
+```
+
+Then, rename the file to .env:
 
 ```bash
-npm start
+mv .env.template .env
 ```
 
-The API will start on `http://localhost:3000` by default.
+### 3. Build and Run
 
-### 5 · Run Tests
+The following command will build the images and start the containers for the backend, database, and object storage:
 
 ```bash
-npm test
+docker-compose up -d
 ```
 
-See [TESTING.md](backend/TESTING.md) for more detailed testing commands.
+Then, you can run the following command to check each container's logs:
+
+```bash
+docker-compose logs
+```
+
+Note that the backend container depends on the Postgres and Minio containers. If you do not see any logs for the backend, wait and try running the command again.
+
+### 4. Set Up Database and Storage
+
+Next, set up the databases and create the storage buckets. These only need to be run once.
+
+```bash
+# Load schema into dev DB
+docker-compose exec -T postgres psql -U postgres -d devdb < backend/database/db_schema.pgsql
+
+# Create test DB from the 'postgres' admin DB
+docker-compose exec -T postgres psql -U postgres -d postgres -c "CREATE DATABASE testdb"
+
+# Load schema into test DB
+docker-compose exec -T postgres psql -U postgres -d testdb < backend/database/db_schema.pgsql
+
+# Create MinIO alias and buckets
+docker-compose exec minio mc alias set minio http://localhost:9000 minioadmin minioadmin
+docker-compose exec minio mc mb minio/devbucket
+docker-compose exec minio mc mb minio/testbucket
+```
+
+### 5. Development Workflow
+
+All development tasks, such as running tests, linting, or formatting code, should be executed inside the running `backend` container. This ensures a consistent and isolated environment.
+
+If you haven't, start the services first:
+
+```bash
+docker-compose up -d
+```
+
+Then, use `docker-compose exec` to run scripts inside the `backend` container. Using the `-t` flag provides a colorized output.
+
+```bash
+# Run all tests
+docker-compose exec -t backend npm run test:all
+
+# Lint the codebase
+docker-compose exec -t backend npm run lint
+
+# Format the codebase
+docker-compose exec -t backend npm run format
+```
+
+To open an interactive shell inside the container, run:
+
+```bash
+docker-compose exec -it backend sh
+```
+
+To exit the shell, run:
+
+```sh
+exit
+```
+
+### 6. Teardown
+
+To stop the containers, run:
+
+```bash
+docker-compose down
+```
 
 ---
 
@@ -159,6 +241,5 @@ See [TESTING.md](backend/TESTING.md) for more detailed testing commands.
 | POST   | `/api/resumes`     | Upload a new résumé PDF.                 |
 | GET    | `/api/resumes/:id` | **Admin** – Download a résumé by its ID. |
 | DELETE | `/api/resumes/:id` | **Admin** – Delete a résumé by its ID.   |
-
 
 > **HTTP 400** for malformed requests, **404** for not found, **422** for validation errors. **401/403** for authentication/authorization errors.

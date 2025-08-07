@@ -3,10 +3,6 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import hash from '../../../src/utils/hash.js';
 
-import dotenv from 'dotenv';
-
-dotenv.config();
-
 describe('createTokens', () => {
   const userId = 1;
   const username = 'testuser';

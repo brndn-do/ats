@@ -7,36 +7,39 @@ import {
   DeleteObjectsCommand,
 } from '@aws-sdk/client-s3';
 import { v4 as uuidv4 } from 'uuid';
-import logger from '../utils/logger';
-import dotenv from 'dotenv';
+import logger from '../utils/logger.js';
 
-dotenv.config();
+const DELAY = process.env.NODE_ENV === 'test' ? 10 : 1000; // shorter delay for testing
 
-const DELAY = 10;
+const clientConfig = {
+  region: process.env.S3_REGION,
+  endpoint: process.env.S3_ENDPOINT,
+  credentials: {
+    accessKeyId: process.env.S3_ACCESS_KEY,
+    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
+  },
+};
 
-let client;
+// the bucket name
+let Bucket;
 
-if (process.env.NODE_ENV === 'test') {
-  logger.info('S3CLIENT: using test credentials');
-  // Use credentials with broader permissions for testing
-  client = new S3Client({
-    region: process.env.S3_REGION,
-    credentials: {
-      accessKeyId: process.env.TEST_S3_ACCESS_KEY,
-      secretAccessKey: process.env.TEST_S3_SECRET_ACCESS_KEY,
-    },
-  });
-} else {
-  // Use more restricted credentials for development/production
-  logger.info('S3CLIENT: using restricted credentials');
-  client = new S3Client({
-    region: process.env.S3_REGION,
-    credentials: {
-      accessKeyId: process.env.S3_ACCESS_KEY,
-      secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
-    },
-  });
+switch (process.env.NODE_ENV) {
+  case 'dev':
+    logger.info('S3CLIENT: using dev MinIO bucket');
+    clientConfig.forcePathStyle = true;
+    Bucket = process.env.DEV_S3_BUCKET_NAME;
+    break;
+  case 'test':
+    logger.info('S3CLIENT: using test MinIO bucket');
+    clientConfig.forcePathStyle = true;
+    Bucket = process.env.TEST_S3_BUCKET_NAME;
+    break;
+  default:
+    logger.info('S3CLIENT: using AWS S3 bucket');
+    Bucket = process.env.S3_BUCKET_NAME;
 }
+
+const client = new S3Client(clientConfig);
 
 /**
  * Empties the contents of an S3 bucket, retrying on failure.
@@ -55,7 +58,7 @@ async function emptyBucket(attempts = 3, delay = DELAY) {
 
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
-      const listParams = { Bucket: process.env.S3_BUCKET_NAME };
+      const listParams = { Bucket };
       // eslint-disable-next-line no-await-in-loop
       const listedObjects = await client.send(new ListObjectsV2Command(listParams));
 
@@ -64,7 +67,7 @@ async function emptyBucket(attempts = 3, delay = DELAY) {
       }
 
       const deleteParams = {
-        Bucket: process.env.S3_BUCKET_NAME,
+        Bucket,
         Delete: {
           Objects: listedObjects.Contents.map(({ Key }) => ({ Key })),
         },
@@ -99,7 +102,7 @@ async function uploadResume(buffer, attempts = 3, delay = DELAY) {
   const id = uuidv4();
   const objectKey = `${id}.pdf`;
   const params = {
-    Bucket: process.env.S3_BUCKET_NAME,
+    Bucket,
     Key: objectKey,
     Body: buffer,
     ContentType: 'application/pdf',
@@ -137,7 +140,7 @@ async function uploadResume(buffer, attempts = 3, delay = DELAY) {
  */
 async function downloadResume(objectKey, attempts = 3, delay = DELAY) {
   const params = {
-    Bucket: process.env.S3_BUCKET_NAME,
+    Bucket,
     Key: objectKey,
   };
   for (let attempt = 0; attempt < attempts; attempt++) {
@@ -171,7 +174,7 @@ async function downloadResume(objectKey, attempts = 3, delay = DELAY) {
  */
 async function deleteResume(objectKey, attempts = 3, delay = DELAY) {
   const params = {
-    Bucket: process.env.S3_BUCKET_NAME,
+    Bucket,
     Key: objectKey,
   };
   for (let attempt = 0; attempt < attempts; attempt++) {
