@@ -4,6 +4,7 @@ import path from 'path';
 import { Pool } from 'pg';
 import { Readable } from 'stream';
 import { DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
+import createTokens from '../../src/utils/createTokens.js';
 
 // Mocks the `pg` module. `new Pool()` will always return the same singleton
 // mock object, allowing tests to configure its behavior for database calls.
@@ -34,6 +35,11 @@ jest.mock('@aws-sdk/client-s3', () => {
 const fakeResumeId = 123;
 const fakeResumeFileName = 'resume.pdf';
 const fakeObjectKey = 'abc.pdf';
+
+// access token for admin user (rename to `adminAccess`)
+const { accessToken: adminAccess } = createTokens(1, 'admin', true);
+// access token for non-admin user (rename to 'nonAdminAccess`)
+const { accessToken: nonAdminAccess } = createTokens(2, 'user', false);
 
 const pool = new Pool();
 const S3Client = require('@aws-sdk/client-s3').S3Client;
@@ -141,7 +147,9 @@ describe('GET /api/resumes/:id', () => {
         Body: mockPdfStream,
       });
       // download the resume
-      res = await request(app).get(`/api/resumes/${fakeResumeId}`);
+      res = await request(app)
+        .get(`/api/resumes/${fakeResumeId}`)
+        .set('Authorization', `Bearer ${adminAccess}`);
     });
 
     // tests
@@ -157,13 +165,32 @@ describe('GET /api/resumes/:id', () => {
 
   describe('Validation tests', () => {
     it('should return 400 if id is not a number', async () => {
-      const res = await request(app).get('/api/resumes/abc');
+      const res = await request(app)
+        .get('/api/resumes/abc')
+        .set('Authorization', `Bearer ${adminAccess}`);
       expect(res.status).toBe(400);
     });
 
     it('should return 400 if id is not an integer', async () => {
-      const res = await request(app).get('/api/resumes/1.1');
+      const res = await request(app)
+        .get('/api/resumes/1.1')
+        .set('Authorization', `Bearer ${adminAccess}`);
       expect(res.status).toBe(400);
+    });
+  });
+
+  describe('Authorization', () => {
+    it('should return 401 if no token', async () => {
+      // no token
+      res = await request(app).get(`/api/resumes/${fakeResumeId}`);
+      expect(res.status).toBe(401);
+    });
+
+    it('should return 403 if not admin', async () => {
+      res = await request(app)
+        .get(`/api/resumes/${fakeResumeId}`)
+        .set('Authorization', `Bearer ${nonAdminAccess}`);
+      expect(res.status).toBe(403);
     });
   });
 
@@ -175,7 +202,9 @@ describe('GET /api/resumes/:id', () => {
         rowCount: 0,
       });
 
-      const res = await request(app).get(`/api/resumes/${fakeResumeId}`);
+      const res = await request(app)
+        .get(`/api/resumes/${fakeResumeId}`)
+        .set('Authorization', `Bearer ${adminAccess}`);
 
       expect(res.status).toBe(404);
     });
@@ -194,7 +223,9 @@ describe('GET /api/resumes/:id', () => {
       });
 
       // download the resume
-      const res = await request(app).get(`/api/resumes/${fakeResumeId}`);
+      const res = await request(app)
+        .get(`/api/resumes/${fakeResumeId}`)
+        .set('Authorization', `Bearer ${adminAccess}`);
 
       expect(res.status).toBe(500);
     });
@@ -209,7 +240,9 @@ describe('GET /api/resumes/:id', () => {
       S3Client.mSend.mockRejectedValue(new Error());
 
       // download the resume
-      const res = await request(app).get(`/api/resumes/${fakeResumeId}`);
+      const res = await request(app)
+        .get(`/api/resumes/${fakeResumeId}`)
+        .set('Authorization', `Bearer ${adminAccess}`);
 
       expect(res.status).toBe(500);
     });

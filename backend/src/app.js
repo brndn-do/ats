@@ -6,6 +6,7 @@ import bcrypt from 'bcrypt';
 import hash from './utils/hash.js';
 import createTokens from './utils/createTokens.js';
 import logger from './utils/logger.js';
+import jwt from 'jsonwebtoken';
 
 const app = express();
 app.use(express.json());
@@ -13,6 +14,38 @@ app.use(express.json());
 const upload = multer({ storage: multer.memoryStorage() });
 
 const REFRESH_TOKEN_EXPIRY = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+// Authentication middleware
+function authenticate(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: 'Access token is required' });
+  }
+
+  try {
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = payload;
+
+    return next();
+  } catch (err) {
+    if (err instanceof jwt.TokenExpiredError) {
+      return res.status(401).json({ error: 'Access token has expired ' });
+    }
+
+    return res.status(401).json({ error: 'Invalid access token ' });
+  }
+}
+
+// Admin authorization middleware
+function authorize(req, res, next) {
+  if (!req.user || !req.user.isAdmin) {
+    return res.status(403).json({ error: 'Forbidden: Admins only' });
+  }
+
+  return next();
+}
 
 /**
  * GET /
@@ -245,10 +278,11 @@ app.post('/api/resumes', upload.single('resume'), async (req, res, next) => {
 /**
  * GET /api/resumes/:id
  * Gets the PDF file of a resume by its ID in the DB.
+ * This is a protected route and requires admin privileges.
  * URL parameter:
  * - id: Resume ID (number)
  */
-app.get('/api/resumes/:id', async (req, res, next) => {
+app.get('/api/resumes/:id', authenticate, authorize, async (req, res, next) => {
   // input validation
   const resumeId = parseInt(req.params.id);
   if (isNaN(resumeId) || !Number.isInteger(parseFloat(req.params.id))) {
