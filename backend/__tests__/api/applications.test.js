@@ -1,6 +1,7 @@
 import request from 'supertest';
 import app from '../../src/app.js';
 import { Pool } from 'pg';
+import createTokens from '../../src/utils/createTokens.js';
 
 // Mocks the `pg` module. `new Pool()` will always return the same singleton
 // mock object, allowing tests to configure its behavior for database calls.
@@ -14,6 +15,13 @@ const pool = new Pool();
 beforeEach(() => {
   pool.query.mockReset();
 });
+
+// access token for admin user (rename to `adminAccess`)
+const { accessToken: adminAccess } = createTokens(1, 'admin', true);
+// access token for non-admin user (rename to 'nonAdminAccess`)
+const { accessToken: nonAdminAccess } = createTokens(2, 'user', false);
+// access token set to expire immediately
+const { accessToken: expiredAccess } = createTokens(3, 'expired', true, '0m');
 
 describe('POST /api/jobs/:id/applications', () => {
   const jobId = 1;
@@ -171,7 +179,9 @@ describe('GET /api/jobs/:id/applications', () => {
         rowCount: applicationsData.length,
       });
 
-      res = await request(app).get(`/api/jobs/${jobId}/applications`);
+      res = await request(app)
+        .get(`/api/jobs/${jobId}/applications`)
+        .set('Authorization', `Bearer ${adminAccess}`);
     });
 
     // tests
@@ -184,14 +194,40 @@ describe('GET /api/jobs/:id/applications', () => {
     });
   });
 
+  describe('Authorization', () => {
+    it('should return 401 if no token', async () => {
+      // no token
+      res = await request(app).get(`/api/jobs/${jobId}/applications`);
+      expect(res.status).toBe(401);
+    });
+
+    it('should return 403 if not admin', async () => {
+      res = await request(app)
+        .get(`/api/jobs/${jobId}/applications`)
+        .set('Authorization', `Bearer ${nonAdminAccess}`);
+      expect(res.status).toBe(403);
+    });
+
+    it('should return 401 if token is expired', async () => {
+      res = await request(app)
+        .get(`/api/jobs/${jobId}/applications`)
+        .set('Authorization', `Bearer ${expiredAccess}`);
+      expect(res.status).toBe(401);
+    });
+  });
+
   describe('Validation tests', () => {
     it('should return 400 if job id is not a number', async () => {
-      const res = await request(app).get(`/api/jobs/abc/applications`);
+      const res = await request(app)
+        .get(`/api/jobs/abc/applications`)
+        .set('Authorization', `Bearer ${adminAccess}`);
       expect(res.status).toBe(400);
     });
 
     it('should return 400 if job id is not an integer', async () => {
-      const res = await request(app).get(`/api/jobs/1.23/applications`);
+      const res = await request(app)
+        .get(`/api/jobs/1.23/applications`)
+        .set('Authorization', `Bearer ${adminAccess}`);
       expect(res.status).toBe(400);
     });
   });
@@ -200,7 +236,9 @@ describe('GET /api/jobs/:id/applications', () => {
     it('should return 404 if job is not found', async () => {
       // Mock job not found
       pool.query.mockResolvedValueOnce({ rows: [], rowCount: 0 });
-      const res = await request(app).get(`/api/jobs/999/applications`);
+      const res = await request(app)
+        .get(`/api/jobs/999/applications`)
+        .set('Authorization', `Bearer ${adminAccess}`);
       expect(res.status).toBe(404);
     });
   });
@@ -208,7 +246,9 @@ describe('GET /api/jobs/:id/applications', () => {
   it('should return 500 if job query fails', async () => {
     // mock db failure
     pool.query.mockRejectedValue(new Error());
-    const res = await request(app).get(`/api/jobs/${jobId}/applications`);
+    const res = await request(app)
+      .get(`/api/jobs/${jobId}/applications`)
+      .set('Authorization', `Bearer ${adminAccess}`);
     expect(res.status).toBe(500);
   });
 
@@ -217,7 +257,9 @@ describe('GET /api/jobs/:id/applications', () => {
     pool.query.mockResolvedValueOnce({ rows: [1], rowCount: 1 });
     // Mock db failure
     pool.query.mockRejectedValue(new Error());
-    const res = await request(app).get(`/api/jobs/${jobId}/applications`);
+    const res = await request(app)
+      .get(`/api/jobs/${jobId}/applications`)
+      .set('Authorization', `Bearer ${adminAccess}`);
     expect(res.status).toBe(500);
   });
 });
@@ -237,7 +279,9 @@ describe('GET /api/applications/:id', () => {
     beforeEach(async () => {
       // mock db query
       pool.query.mockResolvedValueOnce({ rows: [applicationData], rowCount: 1 });
-      res = await request(app).get(`/api/applications/${applicationId}`);
+      res = await request(app)
+        .get(`/api/applications/${applicationId}`)
+        .set('Authorization', `Bearer ${adminAccess}`);
     });
 
     // tests
@@ -250,14 +294,40 @@ describe('GET /api/applications/:id', () => {
     });
   });
 
+  describe('Authorization', () => {
+    it('should return 401 if no token', async () => {
+      // no token
+      res = await request(app).get(`/api/applications/${applicationId}`);
+      expect(res.status).toBe(401);
+    });
+
+    it('should return 403 if not admin', async () => {
+      res = await request(app)
+        .get(`/api/applications/${applicationId}`)
+        .set('Authorization', `Bearer ${nonAdminAccess}`);
+      expect(res.status).toBe(403);
+    });
+
+    it('should return 401 if token is expired', async () => {
+      res = await request(app)
+        .get(`/api/applications/${applicationId}`)
+        .set('Authorization', `Bearer ${expiredAccess}`);
+      expect(res.status).toBe(401);
+    });
+  });
+
   describe('Validation tests', () => {
     it('should return 400 if id is not a number', async () => {
-      const res = await request(app).get('/api/applications/abc');
+      const res = await request(app)
+        .get('/api/applications/abc')
+        .set('Authorization', `Bearer ${adminAccess}`);
       expect(res.status).toBe(400);
     });
 
     it('should return 400 if id is not an integer', async () => {
-      const res = await request(app).get('/api/applications/1.23');
+      const res = await request(app)
+        .get('/api/applications/1.23')
+        .set('Authorization', `Bearer ${adminAccess}`);
       expect(res.status).toBe(400);
     });
   });
@@ -266,7 +336,9 @@ describe('GET /api/applications/:id', () => {
     it('should return 404 if application is not found', async () => {
       // mock not found
       pool.query.mockResolvedValueOnce({ rows: [], rowCount: 0 });
-      const res = await request(app).get('/api/applications/999');
+      const res = await request(app)
+        .get('/api/applications/999')
+        .set('Authorization', `Bearer ${adminAccess}`);
       expect(res.status).toBe(404);
     });
   });
@@ -275,7 +347,9 @@ describe('GET /api/applications/:id', () => {
     it('should return 500 if db failure', async () => {
       // mock db failure
       pool.query.mockRejectedValue(new Error());
-      const res = await request(app).get(`/api/applications/${applicationId}`);
+      const res = await request(app)
+        .get(`/api/applications/${applicationId}`)
+        .set('Authorization', `Bearer ${adminAccess}`);
       expect(res.status).toBe(500);
     });
   });
@@ -289,7 +363,9 @@ describe('DELETE /api/applications/:id', () => {
     beforeEach(async () => {
       // mock db delete
       pool.query.mockResolvedValueOnce({ rows: [], rowCount: 1 });
-      res = await request(app).delete(`/api/applications/${applicationId}`);
+      res = await request(app)
+        .delete(`/api/applications/${applicationId}`)
+        .set('Authorization', `Bearer ${adminAccess}`);
     });
 
     // tests
@@ -304,14 +380,40 @@ describe('DELETE /api/applications/:id', () => {
     });
   });
 
+  describe('Authorization', () => {
+    it('should return 401 if no token', async () => {
+      // no token
+      res = await request(app).delete(`/api/applications/${applicationId}`);
+      expect(res.status).toBe(401);
+    });
+
+    it('should return 403 if not admin', async () => {
+      res = await request(app)
+        .delete(`/api/applications/${applicationId}`)
+        .set('Authorization', `Bearer ${nonAdminAccess}`);
+      expect(res.status).toBe(403);
+    });
+
+    it('should return 401 if token is expired', async () => {
+      res = await request(app)
+        .delete(`/api/applications/${applicationId}`)
+        .set('Authorization', `Bearer ${expiredAccess}`);
+      expect(res.status).toBe(401);
+    });
+  });
+
   describe('Validation tests', () => {
     it('should return 400 if id is not a number', async () => {
-      const res = await request(app).delete('/api/applications/abc');
+      const res = await request(app)
+        .delete('/api/applications/abc')
+        .set('Authorization', `Bearer ${adminAccess}`);
       expect(res.status).toBe(400);
     });
 
     it('should return 400 if id is not an integer', async () => {
-      const res = await request(app).delete('/api/applications/1.23');
+      const res = await request(app)
+        .delete('/api/applications/1.23')
+        .set('Authorization', `Bearer ${adminAccess}`);
       expect(res.status).toBe(400);
     });
   });
@@ -320,7 +422,9 @@ describe('DELETE /api/applications/:id', () => {
     it('should return 404 if application is not found', async () => {
       // mock not found
       pool.query.mockResolvedValueOnce({ rows: [], rowCount: 0 });
-      const res = await request(app).delete('/api/applications/999');
+      const res = await request(app)
+        .delete('/api/applications/999')
+        .set('Authorization', `Bearer ${adminAccess}`);
       expect(res.status).toBe(404);
     });
   });
@@ -329,7 +433,9 @@ describe('DELETE /api/applications/:id', () => {
     it('should return 500 if db failure', async () => {
       // mock db failure
       pool.query.mockRejectedValue(new Error());
-      const res = await request(app).delete(`/api/applications/${applicationId}`);
+      const res = await request(app)
+        .delete(`/api/applications/${applicationId}`)
+        .set('Authorization', `Bearer ${adminAccess}`);
       expect(res.status).toBe(500);
     });
   });

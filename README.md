@@ -243,7 +243,7 @@ docker-compose down
 
 | Method | Endpoint                     | Description                                           |
 | ------ | ---------------------------- | ----------------------------------------------------- |
-| GET    | `/api/applications/:id`      | Get a single application by its ID.                   |
+| GET    | `/api/applications/:id`      | **Admin** - Get a single application by its ID.                   |
 | DELETE | `/api/applications/:id`      | **Admin** – Delete an application by its ID.          |
 | GET    | `/api/jobs/:id/applications` | **Admin** – List all applications for a specific job. |
 | POST   | `/api/jobs/:id/applications` | Submit a new application for a specific job.          |

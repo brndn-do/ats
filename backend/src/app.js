@@ -541,10 +541,11 @@ app.post('/api/jobs/:id/applications', async (req, res, next) => {
 /**
  * GET /api/jobs/:id/applications
  * Gets all applications for a job by its job ID.
+ * This is a protected route and requires admin privileges.
  * URL parameter:
  * - id: Job ID (number)
  */
-app.get('/api/jobs/:id/applications', async (req, res, next) => {
+app.get('/api/jobs/:id/applications', authenticate, authorize, async (req, res, next) => {
   // input validation
   const jobId = parseInt(req.params.id);
   if (isNaN(jobId) || !Number.isInteger(parseFloat(req.params.id))) {
@@ -577,10 +578,11 @@ app.get('/api/jobs/:id/applications', async (req, res, next) => {
 /**
  * GET /api/applications/:id
  * Gets an application by its ID in the DB.
+ * This is a protected route and requires admin privileges.
  * URL parameter:
  * - id: Job ID (number)
  */
-app.get('/api/applications/:id', async (req, res, next) => {
+app.get('/api/applications/:id', authenticate, authorize, async (req, res, next) => {
   // input validation
   const applicationId = parseInt(req.params.id);
   if (isNaN(applicationId) || !Number.isInteger(parseFloat(req.params.id))) {
@@ -610,10 +612,11 @@ app.get('/api/applications/:id', async (req, res, next) => {
 /**
  * DELETE /api/applications/:id
  * Deletes an application by its ID in the DB.
+ * This is a protected route and requires admin privileges.
  * URL parameter:
  * - id: Job ID (number)
  */
-app.delete('/api/applications/:id', async (req, res, next) => {
+app.delete('/api/applications/:id', authenticate, authorize, async (req, res, next) => {
   // input validation
   const applicationId = parseInt(req.params.id);
   if (isNaN(applicationId) || !Number.isInteger(parseFloat(req.params.id))) {
