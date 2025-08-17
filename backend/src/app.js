@@ -31,10 +31,10 @@ function authenticate(req, res, next) {
     return next();
   } catch (err) {
     if (err instanceof jwt.TokenExpiredError) {
-      return res.status(401).json({ error: 'Access token has expired ' });
+      return res.status(401).json({ error: 'Access token has expired' });
     }
 
-    return res.status(401).json({ error: 'Invalid access token ' });
+    return res.status(401).json({ error: 'Invalid access token' });
   }
 }
 
@@ -318,10 +318,11 @@ app.get('/api/resumes/:id', authenticate, authorize, async (req, res, next) => {
 /**
  * DELETE /api/resumes/:id
  * Deletes the object and DB entry of the resume by its ID in the DB.
+ * This is a protected route and requires admin privileges.
  * URL parameter:
  * - id: Resume ID (number)
  */
-app.delete('/api/resumes/:id', async (req, res, next) => {
+app.delete('/api/resumes/:id', authenticate, authorize, async (req, res, next) => {
   // input validation
   const resumeId = parseInt(req.params.id);
   if (isNaN(resumeId) || !Number.isInteger(parseFloat(req.params.id))) {

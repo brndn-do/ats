@@ -41,7 +41,9 @@ it('should complete the full lifecycle of a resume', async () => {
   expect(getRes.body).toEqual(fileBuffer);
 
   // 3. DELETE resume by id
-  const deleteRes = await request(app).delete(`/api/resumes/${id}`);
+  const deleteRes = await request(app)
+    .delete(`/api/resumes/${id}`)
+    .set('Authorization', `Bearer ${adminAccess}`);
   expect(deleteRes.statusCode).toBe(204);
 
   // 4. GET the resume again and assert 404
