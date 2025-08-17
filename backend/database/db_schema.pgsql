@@ -1,4 +1,4 @@
-DROP TABLE IF EXISTS resumes, users, jobs, applications CASCADE;
+DROP TABLE IF EXISTS users, refresh_tokens, resumes, jobs, applications CASCADE;
 
 CREATE TABLE users (
   id SERIAL PRIMARY KEY,
@@ -7,6 +7,13 @@ CREATE TABLE users (
   pwd_hash VARCHAR(255) NOT NULL,
   is_admin BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE refresh_tokens (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  refresh_token_hash VARCHAR(255) NOT NULL UNIQUE,
+  expires_at TIMESTAMPTZ NOT NULL
 );
 
 CREATE TABLE resumes (

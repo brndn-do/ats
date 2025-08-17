@@ -80,7 +80,7 @@ app.post('/api/auth/login', async (req, res, next) => {
   try {
     // get user data
     const selectQuery = `
-      SELECT (id, username, pwd_hash, is_admin)
+      SELECT id, username, pwd_hash, is_admin
       FROM users
       WHERE username = $1
     `;
@@ -185,9 +185,9 @@ app.post('/api/auth/refresh', async (req, res, next) => {
     // look up refresh token hash in DB to get user ID and expiration
     const refreshTokenHash = hash(refreshToken);
     const refreshTokenQuery = `
-    SELECT (user_id, expires_at)
-    FROM refresh_tokens
-    WHERE refresh_token_hash = $1
+      SELECT user_id, expires_at
+      FROM refresh_tokens
+      WHERE refresh_token_hash = $1
     `;
     const refreshTokenParams = [refreshTokenHash];
     const refreshTokenResult = await queryWithRetry(refreshTokenQuery, refreshTokenParams);
@@ -201,9 +201,9 @@ app.post('/api/auth/refresh', async (req, res, next) => {
 
     // look up user in DB to get user info
     const userQuery = `
-    SELECT (id, username, pwd_hash, is_admin)
-    FROM users
-    WHERE id = $1
+      SELECT id, username, pwd_hash, is_admin
+      FROM users
+      WHERE id = $1
     `;
     const userParams = [userId];
     const userResult = await queryWithRetry(userQuery, userParams);
@@ -220,7 +220,7 @@ app.post('/api/auth/refresh', async (req, res, next) => {
     const updateQuery = `
       UPDATE refresh_tokens
       SET 
-        refresh_token_hash = $1
+        refresh_token_hash = $1,
         expires_at = $2
       WHERE refresh_token_hash = $3
     `;
