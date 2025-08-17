@@ -174,6 +174,8 @@ docker-compose exec minio mc mb minio/devbucket
 docker-compose exec minio mc mb minio/testbucket
 ```
 
+Note that a hardcoded admin account is included in db_schema.pgsql.
+
 ### 6. Running tests
 
 Tests should only be executed inside the running backend container. This ensures a consistent and isolated environment.
@@ -243,7 +245,7 @@ docker-compose down
 
 | Method | Endpoint                     | Description                                           |
 | ------ | ---------------------------- | ----------------------------------------------------- |
-| GET    | `/api/applications/:id`      | Get a single application by its ID.                   |
+| GET    | `/api/applications/:id`      | **Admin** - Get a single application by its ID.                   |
 | DELETE | `/api/applications/:id`      | **Admin** – Delete an application by its ID.          |
 | GET    | `/api/jobs/:id/applications` | **Admin** – List all applications for a specific job. |
 | POST   | `/api/jobs/:id/applications` | Submit a new application for a specific job.          |

@@ -6,6 +6,7 @@ import bcrypt from 'bcrypt';
 import hash from './utils/hash.js';
 import createTokens from './utils/createTokens.js';
 import logger from './utils/logger.js';
+import jwt from 'jsonwebtoken';
 
 const app = express();
 app.use(express.json());
@@ -13,6 +14,38 @@ app.use(express.json());
 const upload = multer({ storage: multer.memoryStorage() });
 
 const REFRESH_TOKEN_EXPIRY = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+// Authentication middleware
+function authenticate(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: 'Access token is required' });
+  }
+
+  try {
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = payload;
+
+    return next();
+  } catch (err) {
+    if (err instanceof jwt.TokenExpiredError) {
+      return res.status(401).json({ error: 'Access token has expired' });
+    }
+
+    return res.status(401).json({ error: 'Invalid access token' });
+  }
+}
+
+// Admin authorization middleware
+function authorize(req, res, next) {
+  if (!req.user || !req.user.isAdmin) {
+    return res.status(403).json({ error: 'Forbidden: Admins only' });
+  }
+
+  return next();
+}
 
 /**
  * GET /
@@ -47,7 +80,7 @@ app.post('/api/auth/login', async (req, res, next) => {
   try {
     // get user data
     const selectQuery = `
-      SELECT (id, username, pwd_hash, is_admin)
+      SELECT id, username, pwd_hash, is_admin
       FROM users
       WHERE username = $1
     `;
@@ -152,9 +185,9 @@ app.post('/api/auth/refresh', async (req, res, next) => {
     // look up refresh token hash in DB to get user ID and expiration
     const refreshTokenHash = hash(refreshToken);
     const refreshTokenQuery = `
-    SELECT (user_id, expires_at)
-    FROM refresh_tokens
-    WHERE refresh_token_hash = $1
+      SELECT user_id, expires_at
+      FROM refresh_tokens
+      WHERE refresh_token_hash = $1
     `;
     const refreshTokenParams = [refreshTokenHash];
     const refreshTokenResult = await queryWithRetry(refreshTokenQuery, refreshTokenParams);
@@ -168,9 +201,9 @@ app.post('/api/auth/refresh', async (req, res, next) => {
 
     // look up user in DB to get user info
     const userQuery = `
-    SELECT (id, username, pwd_hash, is_admin)
-    FROM users
-    WHERE id = $1
+      SELECT id, username, pwd_hash, is_admin
+      FROM users
+      WHERE id = $1
     `;
     const userParams = [userId];
     const userResult = await queryWithRetry(userQuery, userParams);
@@ -187,7 +220,7 @@ app.post('/api/auth/refresh', async (req, res, next) => {
     const updateQuery = `
       UPDATE refresh_tokens
       SET 
-        refresh_token_hash = $1
+        refresh_token_hash = $1,
         expires_at = $2
       WHERE refresh_token_hash = $3
     `;
@@ -245,10 +278,11 @@ app.post('/api/resumes', upload.single('resume'), async (req, res, next) => {
 /**
  * GET /api/resumes/:id
  * Gets the PDF file of a resume by its ID in the DB.
+ * This is a protected route and requires admin privileges.
  * URL parameter:
  * - id: Resume ID (number)
  */
-app.get('/api/resumes/:id', async (req, res, next) => {
+app.get('/api/resumes/:id', authenticate, authorize, async (req, res, next) => {
   // input validation
   const resumeId = parseInt(req.params.id);
   if (isNaN(resumeId) || !Number.isInteger(parseFloat(req.params.id))) {
@@ -284,10 +318,11 @@ app.get('/api/resumes/:id', async (req, res, next) => {
 /**
  * DELETE /api/resumes/:id
  * Deletes the object and DB entry of the resume by its ID in the DB.
+ * This is a protected route and requires admin privileges.
  * URL parameter:
  * - id: Resume ID (number)
  */
-app.delete('/api/resumes/:id', async (req, res, next) => {
+app.delete('/api/resumes/:id', authenticate, authorize, async (req, res, next) => {
   // input validation
   const resumeId = parseInt(req.params.id);
   if (isNaN(resumeId) || !Number.isInteger(parseFloat(req.params.id))) {
@@ -321,12 +356,13 @@ app.delete('/api/resumes/:id', async (req, res, next) => {
  * POST /api/jobs
  * Inserts a new job into the DB.
  * Returns the job ID in the DB.
+ * This is a protected route and requires admin privileges.
  * Body parameters:
  * - title: string (required)
  * - description: string (required)
  * - adminId: number (required)
  */
-app.post('/api/jobs', async (req, res, next) => {
+app.post('/api/jobs', authenticate, authorize, async (req, res, next) => {
   // input validation
   if (!req.body) {
     return res.status(400).json({ error: 'Missing body' });
@@ -413,10 +449,11 @@ app.get('/api/jobs/:id', async (req, res, next) => {
 /**
  * DELETE /api/jobs/:id
  * Deletes a job from the DB by its ID.
+ * This is a protected route and requires admin privileges.
  * URL parameter:
  * - id: Job ID (number)
  */
-app.delete('/api/jobs/:id', async (req, res, next) => {
+app.delete('/api/jobs/:id', authenticate, authorize, async (req, res, next) => {
   // input validation
   const jobId = parseInt(req.params.id);
   if (isNaN(jobId) || !Number.isInteger(parseFloat(req.params.id))) {
@@ -504,10 +541,11 @@ app.post('/api/jobs/:id/applications', async (req, res, next) => {
 /**
  * GET /api/jobs/:id/applications
  * Gets all applications for a job by its job ID.
+ * This is a protected route and requires admin privileges.
  * URL parameter:
  * - id: Job ID (number)
  */
-app.get('/api/jobs/:id/applications', async (req, res, next) => {
+app.get('/api/jobs/:id/applications', authenticate, authorize, async (req, res, next) => {
   // input validation
   const jobId = parseInt(req.params.id);
   if (isNaN(jobId) || !Number.isInteger(parseFloat(req.params.id))) {
@@ -540,10 +578,11 @@ app.get('/api/jobs/:id/applications', async (req, res, next) => {
 /**
  * GET /api/applications/:id
  * Gets an application by its ID in the DB.
+ * This is a protected route and requires admin privileges.
  * URL parameter:
  * - id: Job ID (number)
  */
-app.get('/api/applications/:id', async (req, res, next) => {
+app.get('/api/applications/:id', authenticate, authorize, async (req, res, next) => {
   // input validation
   const applicationId = parseInt(req.params.id);
   if (isNaN(applicationId) || !Number.isInteger(parseFloat(req.params.id))) {
@@ -573,10 +612,11 @@ app.get('/api/applications/:id', async (req, res, next) => {
 /**
  * DELETE /api/applications/:id
  * Deletes an application by its ID in the DB.
+ * This is a protected route and requires admin privileges.
  * URL parameter:
  * - id: Job ID (number)
  */
-app.delete('/api/applications/:id', async (req, res, next) => {
+app.delete('/api/applications/:id', authenticate, authorize, async (req, res, next) => {
   // input validation
   const applicationId = parseInt(req.params.id);
   if (isNaN(applicationId) || !Number.isInteger(parseFloat(req.params.id))) {

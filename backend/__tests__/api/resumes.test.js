@@ -4,6 +4,7 @@ import path from 'path';
 import { Pool } from 'pg';
 import { Readable } from 'stream';
 import { DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
+import createTokens from '../../src/utils/createTokens.js';
 
 // Mocks the `pg` module. `new Pool()` will always return the same singleton
 // mock object, allowing tests to configure its behavior for database calls.
@@ -34,6 +35,13 @@ jest.mock('@aws-sdk/client-s3', () => {
 const fakeResumeId = 123;
 const fakeResumeFileName = 'resume.pdf';
 const fakeObjectKey = 'abc.pdf';
+
+// access token for admin user (rename to `adminAccess`)
+const { accessToken: adminAccess } = createTokens(1, 'admin', true);
+// access token for non-admin user (rename to 'nonAdminAccess`)
+const { accessToken: nonAdminAccess } = createTokens(2, 'user', false);
+// access token set to expire immediately
+const { accessToken: expiredAccess } = createTokens(3, 'expired', true, '0m');
 
 const pool = new Pool();
 const S3Client = require('@aws-sdk/client-s3').S3Client;
@@ -141,7 +149,9 @@ describe('GET /api/resumes/:id', () => {
         Body: mockPdfStream,
       });
       // download the resume
-      res = await request(app).get(`/api/resumes/${fakeResumeId}`);
+      res = await request(app)
+        .get(`/api/resumes/${fakeResumeId}`)
+        .set('Authorization', `Bearer ${adminAccess}`);
     });
 
     // tests
@@ -155,14 +165,40 @@ describe('GET /api/resumes/:id', () => {
     });
   });
 
+  describe('Authorization', () => {
+    it('should return 401 if no token', async () => {
+      // no token
+      res = await request(app).get(`/api/resumes/${fakeResumeId}`);
+      expect(res.status).toBe(401);
+    });
+
+    it('should return 403 if not admin', async () => {
+      res = await request(app)
+        .get(`/api/resumes/${fakeResumeId}`)
+        .set('Authorization', `Bearer ${nonAdminAccess}`);
+      expect(res.status).toBe(403);
+    });
+
+    it('should return 401 if token is expired', async () => {
+      res = await request(app)
+        .get(`/api/resumes/${fakeResumeId}`)
+        .set('Authorization', `Bearer ${expiredAccess}`);
+      expect(res.status).toBe(401);
+    });
+  });
+
   describe('Validation tests', () => {
     it('should return 400 if id is not a number', async () => {
-      const res = await request(app).get('/api/resumes/abc');
+      const res = await request(app)
+        .get('/api/resumes/abc')
+        .set('Authorization', `Bearer ${adminAccess}`);
       expect(res.status).toBe(400);
     });
 
     it('should return 400 if id is not an integer', async () => {
-      const res = await request(app).get('/api/resumes/1.1');
+      const res = await request(app)
+        .get('/api/resumes/1.1')
+        .set('Authorization', `Bearer ${adminAccess}`);
       expect(res.status).toBe(400);
     });
   });
@@ -175,7 +211,9 @@ describe('GET /api/resumes/:id', () => {
         rowCount: 0,
       });
 
-      const res = await request(app).get(`/api/resumes/${fakeResumeId}`);
+      const res = await request(app)
+        .get(`/api/resumes/${fakeResumeId}`)
+        .set('Authorization', `Bearer ${adminAccess}`);
 
       expect(res.status).toBe(404);
     });
@@ -194,7 +232,9 @@ describe('GET /api/resumes/:id', () => {
       });
 
       // download the resume
-      const res = await request(app).get(`/api/resumes/${fakeResumeId}`);
+      const res = await request(app)
+        .get(`/api/resumes/${fakeResumeId}`)
+        .set('Authorization', `Bearer ${adminAccess}`);
 
       expect(res.status).toBe(500);
     });
@@ -209,7 +249,9 @@ describe('GET /api/resumes/:id', () => {
       S3Client.mSend.mockRejectedValue(new Error());
 
       // download the resume
-      const res = await request(app).get(`/api/resumes/${fakeResumeId}`);
+      const res = await request(app)
+        .get(`/api/resumes/${fakeResumeId}`)
+        .set('Authorization', `Bearer ${adminAccess}`);
 
       expect(res.status).toBe(500);
     });
@@ -226,7 +268,9 @@ describe('DELETE /api/resumes/:id', () => {
         rowCount: 1,
       });
       // delete the resume
-      res = await request(app).delete(`/api/resumes/${fakeResumeId}`);
+      res = await request(app)
+        .delete(`/api/resumes/${fakeResumeId}`)
+        .set('Authorization', `Bearer ${adminAccess}`);
     });
 
     // tests
@@ -245,14 +289,37 @@ describe('DELETE /api/resumes/:id', () => {
     });
   });
 
+  describe('Authorization', () => {
+    it('should return 401 if no token', async () => {
+      const res = await request(app).delete(`/api/resumes/${fakeResumeId}`);
+      expect(res.status).toBe(401);
+    });
+    it('should return 403 if not admin', async () => {
+      const res = await request(app)
+        .delete(`/api/resumes/${fakeResumeId}`)
+        .set('Authorization', `Bearer ${nonAdminAccess}`);
+      expect(res.status).toBe(403);
+    });
+    it('should return 401 if token is expired', async () => {
+      const res = await request(app)
+        .delete(`/api/resumes/${fakeResumeId}`)
+        .set('Authorization', `Bearer ${expiredAccess}`);
+      expect(res.status).toBe(401);
+    });
+  });
+
   describe('Validation tests', () => {
     it('should return 400 if the ID is not number', async () => {
-      const res = await request(app).delete(`/api/resumes/abc`);
+      const res = await request(app)
+        .delete(`/api/resumes/abc`)
+        .set('Authorization', `Bearer ${adminAccess}`);
       expect(res.status).toBe(400);
     });
 
     it('should return 400 if the ID is not an integer', async () => {
-      const res = await request(app).delete(`/api/resumes/1.1`);
+      const res = await request(app)
+        .delete(`/api/resumes/1.1`)
+        .set('Authorization', `Bearer ${adminAccess}`);
       expect(res.status).toBe(400);
     });
   });
@@ -261,7 +328,9 @@ describe('DELETE /api/resumes/:id', () => {
     it('should return 404 if the resume to delete is not found', async () => {
       // mock resume not found
       pool.query.mockResolvedValueOnce({ rows: [], rowCount: 0 });
-      const res = await request(app).delete(`/api/resumes/9999`);
+      const res = await request(app)
+        .delete(`/api/resumes/9999`)
+        .set('Authorization', `Bearer ${adminAccess}`);
       expect(res.status).toBe(404);
     });
   });
@@ -269,7 +338,9 @@ describe('DELETE /api/resumes/:id', () => {
   it('should return 500 if DB failure', async () => {
     // mock DB error
     pool.query.mockRejectedValue(new Error('DB connection error'));
-    const res = await request(app).delete(`/api/resumes/${fakeResumeId}`);
+    const res = await request(app)
+      .delete(`/api/resumes/${fakeResumeId}`)
+      .set('Authorization', `Bearer ${adminAccess}`);
     expect(res.status).toBe(500);
   });
 
@@ -281,7 +352,9 @@ describe('DELETE /api/resumes/:id', () => {
     });
     // mock S3 error
     S3Client.mSend.mockRejectedValue(new Error('S3 connection error'));
-    const res = await request(app).delete(`/api/resumes/${fakeResumeId}`);
+    const res = await request(app)
+      .delete(`/api/resumes/${fakeResumeId}`)
+      .set('Authorization', `Bearer ${adminAccess}`);
     expect(res.status).toBe(500);
   });
 });
