@@ -41,7 +41,7 @@ const { accessToken: adminAccess } = createTokens(1, 'admin', true);
 // access token for non-admin user (rename to 'nonAdminAccess`)
 const { accessToken: nonAdminAccess } = createTokens(2, 'user', false);
 // access token set to expire immediately
-const { accessToken: expiredAccess } = createTokens(3, 'expired', false, '0m');
+const { accessToken: expiredAccess } = createTokens(3, 'expired', true, '0m');
 
 const pool = new Pool();
 const S3Client = require('@aws-sdk/client-s3').S3Client;

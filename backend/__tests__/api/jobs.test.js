@@ -1,6 +1,7 @@
 import request from 'supertest';
 import app from '../../src/app.js';
 import { Pool } from 'pg';
+import createTokens from '../../src/utils/createTokens.js';
 
 // Mocks the `pg` module. `new Pool()` will always return the same singleton
 // mock object, allowing tests to configure its behavior for database calls.
@@ -22,6 +23,13 @@ const jobData = {
   adminId: 1,
 };
 
+// access token for admin user (rename to `adminAccess`)
+const { accessToken: adminAccess } = createTokens(1, 'admin', true);
+// access token for non-admin user (rename to 'nonAdminAccess`)
+const { accessToken: nonAdminAccess } = createTokens(2, 'user', false);
+// access token set to expire immediately
+const { accessToken: expiredAccess } = createTokens(3, 'expired', true, '0m');
+
 describe('POST /api/jobs', () => {
   const queryResult = { rows: [{ id: jobId }], rowCount: 1 };
 
@@ -31,7 +39,10 @@ describe('POST /api/jobs', () => {
       // mock DB query
       pool.query.mockResolvedValueOnce(queryResult);
       // post a valid job
-      res = await request(app).post('/api/jobs').send(jobData);
+      res = await request(app)
+        .post('/api/jobs')
+        .send(jobData)
+        .set('Authorization', `Bearer ${adminAccess}`);
     });
 
     // tests
@@ -52,9 +63,32 @@ describe('POST /api/jobs', () => {
     });
   });
 
+  describe('Authorization', () => {
+    it('should return 401 if missing token', async () => {
+      const res = await request(app).post('/api/jobs').send(jobData);
+      expect(res.status).toBe(401);
+    });
+    it('should return 403 if not admin', async () => {
+      const res = await request(app)
+        .post('/api/jobs')
+        .send(jobData)
+        .set('Authorization', `Bearer ${nonAdminAccess}`);
+      expect(res.status).toBe(403);
+    });
+    it('should return 401 if token is expired', async () => {
+      const res = await request(app)
+        .post('/api/jobs')
+        .send(jobData)
+        .set('Authorization', `Bearer ${expiredAccess}`);
+      expect(res.status).toBe(401);
+    });
+  });
+
   describe('Validation tests', () => {
     it('should return 400 if missing body', async () => {
-      const res = await request(app).post('/api/jobs');
+      const res = await request(app)
+        .post('/api/jobs')
+        .set('Authorization', `Bearer ${adminAccess}`);
       expect(res.status).toBe(400);
     });
     describe('missing required fields', () => {
@@ -62,21 +96,30 @@ describe('POST /api/jobs', () => {
         // eslint-disable-next-line no-unused-vars
         const { title, ...badJobData } = jobData;
         // send with title missing
-        const res = await request(app).post('/api/jobs').send(badJobData);
+        const res = await request(app)
+          .post('/api/jobs')
+          .send(badJobData)
+          .set('Authorization', `Bearer ${adminAccess}`);
         expect(res.status).toBe(422);
       });
       it('should return 422 if missing description', async () => {
         // eslint-disable-next-line no-unused-vars
         const { description, ...badJobData } = jobData;
         // send with missing description
-        const res = await request(app).post('/api/jobs').send(badJobData);
+        const res = await request(app)
+          .post('/api/jobs')
+          .send(badJobData)
+          .set('Authorization', `Bearer ${adminAccess}`);
         expect(res.status).toBe(422);
       });
       it('should return 422 if missing adminId', async () => {
         // eslint-disable-next-line no-unused-vars
         const { adminId, ...badJobData } = jobData;
         // send with missing adminId
-        const res = await request(app).post('/api/jobs').send(badJobData);
+        const res = await request(app)
+          .post('/api/jobs')
+          .send(badJobData)
+          .set('Authorization', `Bearer ${adminAccess}`);
         expect(res.status).toBe(422);
       });
     });
@@ -86,7 +129,10 @@ describe('POST /api/jobs', () => {
         const { title, ...rest } = jobData;
         const badJobData = { title: 123, ...rest };
         // send with bad title
-        const res = await request(app).post('/api/jobs').send(badJobData);
+        const res = await request(app)
+          .post('/api/jobs')
+          .send(badJobData)
+          .set('Authorization', `Bearer ${adminAccess}`);
         expect(res.status).toBe(422);
       });
       it('should return 422 if description is not string', async () => {
@@ -94,7 +140,10 @@ describe('POST /api/jobs', () => {
         const { description, ...rest } = jobData;
         const badJobData = { description: 123, ...rest };
         // send with bad description
-        const res = await request(app).post('/api/jobs').send(badJobData);
+        const res = await request(app)
+          .post('/api/jobs')
+          .send(badJobData)
+          .set('Authorization', `Bearer ${adminAccess}`);
         expect(res.status).toBe(422);
       });
       it('should return 422 if adminId is not a number', async () => {
@@ -102,7 +151,10 @@ describe('POST /api/jobs', () => {
         const { adminId, ...rest } = jobData;
         const badJobData = { adminId: 'abc', ...rest };
         // send request with bad adminId
-        const res = await request(app).post('/api/jobs').send(badJobData);
+        const res = await request(app)
+          .post('/api/jobs')
+          .send(badJobData)
+          .set('Authorization', `Bearer ${adminAccess}`);
         expect(res.status).toBe(422);
       });
       it('should return 422 if adminId is not an integer', async () => {
@@ -110,7 +162,10 @@ describe('POST /api/jobs', () => {
         const { adminId, ...rest } = jobData;
         const badJobData = { adminId: 1.23, ...rest };
         // send with bad adminId
-        const res = await request(app).post('/api/jobs').send(badJobData);
+        const res = await request(app)
+          .post('/api/jobs')
+          .send(badJobData)
+          .set('Authorization', `Bearer ${adminAccess}`);
         expect(res.status).toBe(422);
       });
     });
@@ -120,7 +175,10 @@ describe('POST /api/jobs', () => {
     it('should return 500 if db failure', async () => {
       // mock DB failure
       pool.query.mockRejectedValue(new Error());
-      const res = await request(app).post('/api/jobs').send(jobData);
+      const res = await request(app)
+        .post('/api/jobs')
+        .send(jobData)
+        .set('Authorization', `Bearer ${adminAccess}`);
       expect(res.status).toBe(500);
     });
   });
@@ -219,7 +277,9 @@ describe('DELETE /api/jobs/:id', () => {
       // mock DB delete
       pool.query.mockResolvedValueOnce({ rows: [], rowCount: 1 });
       // delete the job
-      res = await request(app).delete(`/api/jobs/${jobId}`);
+      res = await request(app)
+        .delete(`/api/jobs/${jobId}`)
+        .set('Authorization', `Bearer ${adminAccess}`);
     });
 
     // tests
@@ -232,14 +292,37 @@ describe('DELETE /api/jobs/:id', () => {
     });
   });
 
+  describe('Authorization', () => {
+    it('should return 401 if missing token', async () => {
+      const res = await request(app).delete(`/api/jobs/${jobId}`);
+      expect(res.status).toBe(401);
+    });
+    it('should return 403 if not admin', async () => {
+      const res = await request(app)
+        .delete(`/api/jobs/${jobId}`)
+        .set('Authorization', `Bearer ${nonAdminAccess}`);
+      expect(res.status).toBe(403);
+    });
+    it('should return 401 if token is expired', async () => {
+      const res = await request(app)
+        .delete(`/api/jobs/${jobId}`)
+        .set('Authorization', `Bearer ${expiredAccess}`);
+      expect(res.status).toBe(401);
+    });
+  });
+
   describe('Validation tests', () => {
     it('should return 400 if id is not a number', async () => {
-      const res = await request(app).delete('/api/jobs/abc');
+      const res = await request(app)
+        .delete('/api/jobs/abc')
+        .set('Authorization', `Bearer ${adminAccess}`);
       expect(res.status).toBe(400);
     });
 
     it('should return 400 if id is not an integer', async () => {
-      const res = await request(app).delete('/api/jobs/1.23');
+      const res = await request(app)
+        .delete('/api/jobs/1.23')
+        .set('Authorization', `Bearer ${adminAccess}`);
       expect(res.status).toBe(400);
     });
   });
@@ -249,7 +332,9 @@ describe('DELETE /api/jobs/:id', () => {
       // mock job not found
       pool.query.mockResolvedValueOnce({ rows: [], rowCount: 0 });
       // send request for job that doesn't exist
-      const res = await request(app).delete('/api/jobs/999');
+      const res = await request(app)
+        .delete('/api/jobs/999')
+        .set('Authorization', `Bearer ${adminAccess}`);
       expect(res.status).toBe(404);
     });
   });
@@ -258,7 +343,9 @@ describe('DELETE /api/jobs/:id', () => {
     it('should return 500 if db failure', async () => {
       // mock db failure
       pool.query.mockRejectedValue(new Error());
-      const res = await request(app).delete('/api/jobs/1');
+      const res = await request(app)
+        .delete('/api/jobs/1')
+        .set('Authorization', `Bearer ${adminAccess}`);
       expect(res.status).toBe(500);
     });
   });

@@ -1,6 +1,7 @@
 import request from 'supertest';
 import app from '../../src/app.js';
 import queryWithRetry, { pool } from '../../src/services/db.js';
+import createTokens from '../../src/utils/createTokens.js';
 
 // Clean up the jobs table before test
 beforeAll(async () => {
@@ -13,6 +14,8 @@ afterAll(async () => {
 });
 
 it('should complete the full lifecycle of a job', async () => {
+  // access token for admin user (rename to `adminAccess`)
+  const { accessToken: adminAccess } = createTokens(1, 'admin', true);
   const jobData = {
     title: 'Integration Test Job',
     description: 'This is a job for integration testing.',
@@ -25,7 +28,10 @@ it('should complete the full lifecycle of a job', async () => {
   };
 
   // 1. POST a new job
-  const postRes = await request(app).post('/api/jobs').send(jobData);
+  const postRes = await request(app)
+    .post('/api/jobs')
+    .send(jobData)
+    .set('Authorization', `Bearer ${adminAccess}`);
   expect(postRes.status).toBe(201);
   const createdJobId = postRes.body.jobId;
   expect(createdJobId).toEqual(expect.any(Number));
@@ -43,7 +49,9 @@ it('should complete the full lifecycle of a job', async () => {
   expect(getByIdRes.body.job).toMatchObject(expectedDBResult);
 
   // 4. DELETE the job by ID
-  const deleteRes = await request(app).delete(`/api/jobs/${createdJobId}`);
+  const deleteRes = await request(app)
+    .delete(`/api/jobs/${createdJobId}`)
+    .set('Authorization', `Bearer ${adminAccess}`);
   expect(deleteRes.status).toBe(204);
 
   // 5. GET the job again and assert 404

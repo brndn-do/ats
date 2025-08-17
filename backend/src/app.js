@@ -356,12 +356,13 @@ app.delete('/api/resumes/:id', authenticate, authorize, async (req, res, next) =
  * POST /api/jobs
  * Inserts a new job into the DB.
  * Returns the job ID in the DB.
+ * This is a protected route and requires admin privileges.
  * Body parameters:
  * - title: string (required)
  * - description: string (required)
  * - adminId: number (required)
  */
-app.post('/api/jobs', async (req, res, next) => {
+app.post('/api/jobs', authenticate, authorize, async (req, res, next) => {
   // input validation
   if (!req.body) {
     return res.status(400).json({ error: 'Missing body' });
@@ -448,10 +449,11 @@ app.get('/api/jobs/:id', async (req, res, next) => {
 /**
  * DELETE /api/jobs/:id
  * Deletes a job from the DB by its ID.
+ * This is a protected route and requires admin privileges.
  * URL parameter:
  * - id: Job ID (number)
  */
-app.delete('/api/jobs/:id', async (req, res, next) => {
+app.delete('/api/jobs/:id', authenticate, authorize, async (req, res, next) => {
   // input validation
   const jobId = parseInt(req.params.id);
   if (isNaN(jobId) || !Number.isInteger(parseFloat(req.params.id))) {
