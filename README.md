@@ -12,7 +12,7 @@ This project is currently focused on the backend API. The front-end is not yet s
 | :-------- | :----------------------------------------------------- |
 | `✓ Done`  | Core API for managing jobs, applications, and resumes. |
 | `✓ Done`  | User authentication                                    |
-| `- To Do` | User authorization                                     |
+| `✓ Done`  | User authorization                                     |
 | `- To Do` | Automated résumé parsing and keyword matching.         |
 | `- To Do` | Front-end React UI.                                    |
 | `- To Do` | Containerization and deployment.                       |
@@ -100,9 +100,12 @@ cd ats
 ```
 
 ### 2. (Optional) Install Dependencies Locally
+
 The backend’s dependencies will be installed inside the backend Docker container. You only need to install them locally if:
+
 - You want editor support for Prettier or ESLint
 - You want to run `npm run lint` or `npm run format` outside the container.
+
 ```bash
 cd backend # move to backend
 npm install # optional install on host machine
@@ -110,6 +113,7 @@ npm run format # format
 npm run lint # lint
 cd .. # move back to parent directory (where docker-compose.yml is)
 ```
+
 Since `backend/node_modules/` is **not mounted**, and is ignored in `backend/.dockerignore`, installing packages on your host machine will **not affect** the container’s `node_modules/`.
 
 ### 3. Set environment variables
@@ -174,7 +178,7 @@ docker-compose exec minio mc mb minio/devbucket
 docker-compose exec minio mc mb minio/testbucket
 ```
 
-Note that a hardcoded admin account is included in db_schema.pgsql.
+Note that a hardcoded admin account is included in `db_schema.pgsql`.
 
 ### 6. Running tests
 
@@ -245,7 +249,7 @@ docker-compose down
 
 | Method | Endpoint                     | Description                                           |
 | ------ | ---------------------------- | ----------------------------------------------------- |
-| GET    | `/api/applications/:id`      | **Admin** - Get a single application by its ID.                   |
+| GET    | `/api/applications/:id`      | **Admin** - Get a single application by its ID.       |
 | DELETE | `/api/applications/:id`      | **Admin** – Delete an application by its ID.          |
 | GET    | `/api/jobs/:id/applications` | **Admin** – List all applications for a specific job. |
 | POST   | `/api/jobs/:id/applications` | Submit a new application for a specific job.          |
