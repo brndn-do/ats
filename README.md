@@ -174,6 +174,8 @@ docker-compose exec minio mc mb minio/devbucket
 docker-compose exec minio mc mb minio/testbucket
 ```
 
+Note that a hardcoded admin account is included in db_schema.pgsql.
+
 ### 6. Running tests
 
 Tests should only be executed inside the running backend container. This ensures a consistent and isolated environment.
